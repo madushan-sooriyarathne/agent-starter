@@ -1,5 +1,5 @@
 {
-  "description": "dotclaude safety guardrails: block dangerous commands, secret leaks, edits to protected files, and writes to build artifacts.",
+  "description": "claude-code-starter safety guardrails: block dangerous commands, secret leaks, edits to protected files, and writes to build artifacts.",
   "hooks": {
     "PreToolUse": [
       {

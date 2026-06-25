@@ -4,11 +4,12 @@
   "version": "1.0.0",
   "description": "Rebuild context fast after /clear: reads the handoff note and branch changes, summarizes where work stands. Add handoff to write the note before stopping.",
   "author": {
-    "name": "poshan0126"
+    "name": "Madushan Sooriyarathne",
+    "email": "hello@madushan.dev"
   },
   "license": "MIT",
-  "homepage": "https://github.com/poshan0126/dotclaude",
-  "repository": "https://github.com/poshan0126/dotclaude",
+  "homepage": "https://github.com/madushan-sooriyarathne/claude-code-starter",
+  "repository": "https://github.com/madushan-sooriyarathne/claude-code-starter",
   "keywords": [
     "context",
     "session",

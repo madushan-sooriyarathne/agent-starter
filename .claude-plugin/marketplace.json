@@ -175,7 +175,7 @@
 		{
 			"name": "setup-claude",
 			"source": "./plugins/setup-claude",
-			"description": "Set up dotclaude in any project. Deep-scans the codebase, interviews you, then installs and customizes only the components the project actually needs.",
+			"description": "Set up claude-code-starter in any project. Deep-scans the codebase, interviews you, then installs and customizes only the components the project actually needs.",
 			"author": {
 				"name": "Madushan Sooriyarathne",
 				"email": "hello@madushan.dev"

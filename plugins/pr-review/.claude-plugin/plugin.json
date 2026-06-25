@@ -4,11 +4,12 @@
   "version": "2.1.0",
   "description": "Review PR or staged changes via six specialist agents in parallel. Confidence-bucketed, severity-ranked synthesis.",
   "author": {
-    "name": "poshan0126"
+    "name": "Madushan Sooriyarathne",
+    "email": "hello@madushan.dev"
   },
   "license": "MIT",
-  "homepage": "https://github.com/poshan0126/dotclaude",
-  "repository": "https://github.com/poshan0126/dotclaude",
+  "homepage": "https://github.com/madushan-sooriyarathne/claude-code-starter",
+  "repository": "https://github.com/madushan-sooriyarathne/claude-code-starter",
   "keywords": [
     "pull-request",
     "review",

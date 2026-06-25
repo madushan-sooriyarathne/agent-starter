@@ -4,11 +4,12 @@
   "version": "2.0.0",
   "description": "Find and fix a bug. Default is the careful path (reproduce, investigate, test). Add `--fast` for emergency hotfix mode.",
   "author": {
-    "name": "poshan0126"
+    "name": "Madushan Sooriyarathne",
+    "email": "hello@madushan.dev"
   },
   "license": "MIT",
-  "homepage": "https://github.com/poshan0126/dotclaude",
-  "repository": "https://github.com/poshan0126/dotclaude",
+  "homepage": "https://github.com/madushan-sooriyarathne/claude-code-starter",
+  "repository": "https://github.com/madushan-sooriyarathne/claude-code-starter",
   "keywords": [
     "debugging",
     "hotfix",

@@ -111,4 +111,4 @@ End the report with the highest-leverage trim recommendation if any class is ove
 - Agents run in isolated context. Their prompt cost is per-invocation in their own session, not per-turn in your main thread.
 - Skills cost zero until invoked. Most have `disable-model-invocation: true`, meaning they only fire on `/name`.
 - Path-scoped rules cost zero unless the conversation touches files matching their globs.
-- Hooks contribute to context only if they print to stdout. dotclaude's hooks are silent on success by design.
+- Hooks contribute to context only if they print to stdout. This plugin's hooks are silent on success by design.
