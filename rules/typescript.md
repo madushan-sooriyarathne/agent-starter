@@ -1,3 +1,9 @@
+---
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+---
+
 # TypeScript Rules
 
 These rules govern all TypeScript in this project. They are not style preferences — Biome handles formatting. They are about type safety and correctness.
@@ -21,3 +27,11 @@ Internal, fully-typed data does not need Zod. Don't add validation theater betwe
 ## General
 
 Prefer `type` aliases for unions and object shapes; use `interface` only when declaration merging is actually needed. Make illegal states unrepresentable with discriminated unions, and handle them exhaustively (a `never` check in the default branch). Avoid non-null assertions (`!`) — narrow instead. Keep functions returning a single, predictable shape rather than unions of unrelated results where a caller can't tell which it got.
+
+`import type { ... }` for type-only imports. Never type a callback as `Function` — write the explicit signature. Use constructor parameter-property shorthand (`constructor(private readonly db: Database) {}`) instead of separate field declarations. Brand primitive IDs (`type UserId = Brand<string, "UserId">`) so a `UserId` can't be passed where an `OrgId` is expected. Prefer `satisfies` over `as` when validating an object against a shape without widening its literal types.
+
+DB helper functions that may run inside or outside a transaction should type their connection parameter as `Database | Transaction<...>`, not just `Database`, so the same helper works in both contexts.
+
+## tsconfig
+
+`strict: true` is the floor. Also enable `noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters`, `isolatedModules`.

@@ -1,3 +1,10 @@
+---
+paths:
+  - "**/app/**"
+  - "**/pages/**"
+  - "next.config.*"
+---
+
 # Next.js Rules (App Router)
 
 ## Server components by default
@@ -20,6 +27,12 @@ Use the App Router conventions: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.
 
 Validate inputs with Zod at the top of every server action — actions are public endpoints. Check the BetterAuth session and authorization before doing work. Revalidate (`revalidatePath`/`revalidateTag`) after mutations rather than over-fetching.
 
+## Data access layer
+
+Centralize DB queries, CMS calls, and third-party mutations in a dedicated DAL (`lib/dal/`, `features/*/queries.ts`). Add `import "server-only"` at the top of every DAL file so an accidental import into a Client Component fails the build instead of leaking server code to the client.
+
+Identical `fetch` calls (same URL + options) inside one render pass are automatically deduped — don't thread data through props or a top-level provider just to avoid a second call. For mutable/dynamic data, tag fetches (`next: { tags: ["products"] }`) and purge with `revalidateTag` from a route handler or server action rather than guessing a time-based revalidate window.
+
 ## Misc
 
-Use `next/image` for images and `next/font` for fonts. Use `next/link` for internal navigation. Reach for `next/dynamic` to keep heavy client-only widgets out of the initial bundle. Set route `metadata` for pages that need it.
+Use `next/image` for images and `next/font` for fonts — always set `sizes` when the image isn't a fixed layout, and `priority` on above-the-fold LCP images. Use `next/link` for internal navigation. Reach for `next/dynamic` to keep heavy client-only widgets out of the initial bundle. Set route `metadata` for pages that need it. Wrap components reading `cookies()` or `searchParams` in `<Suspense>` so they don't block the rest of the page. Validate dynamic route params early and call `notFound()` immediately on a miss rather than letting bad data flow downstream.

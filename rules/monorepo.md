@@ -1,3 +1,11 @@
+---
+paths:
+  - "apps/**"
+  - "packages/**"
+  - "turbo.json"
+  - "pnpm-workspace.yaml"
+---
+
 # Monorepo Rules (Turborepo + pnpm workspaces)
 
 Applies when the project is a Turborepo with pnpm workspaces. For a single-app repo, only the "no barrel files" and import-hygiene points apply.
