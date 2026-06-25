@@ -1,1 +1,1 @@
-../../../CLAUDE.template.md
+../../../templates/CLAUDE.template.md

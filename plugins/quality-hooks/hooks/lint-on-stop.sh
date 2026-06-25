@@ -1,0 +1,1 @@
+../../../hooks/lint-on-stop.sh

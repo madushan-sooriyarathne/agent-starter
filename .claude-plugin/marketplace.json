@@ -140,6 +140,17 @@
 			"category": "testing"
 		},
 		{
+			"name": "quality-hooks",
+			"source": "./plugins/quality-hooks",
+			"description": "Deterministic code-quality hooks: format-on-save (Biome), auto-test on edit, and once-per-turn typecheck/lint on stop.",
+			"author": {
+				"name": "Madushan Sooriyarathne",
+				"email": "hello@madushan.dev"
+			},
+			"keywords": ["hooks", "quality", "format", "typecheck", "lint", "test"],
+			"category": "productivity"
+		},
+		{
 			"name": "refactor",
 			"source": "./plugins/refactor",
 			"description": "Safely refactor with tests as a safety net. Writes tests first if none exist. Use --diff to simplify just the working diff before committing.",
@@ -160,6 +171,17 @@
 			},
 			"keywords": ["hooks", "safety", "secrets", "guardrails"],
 			"category": "security"
+		},
+		{
+			"name": "sanity-reviewer",
+			"source": "./plugins/sanity-reviewer",
+			"description": "Reviews Sanity CMS work — schema changes, GROQ queries, content-model decisions — for correctness, query efficiency, and editor experience.",
+			"author": {
+				"name": "Madushan Sooriyarathne",
+				"email": "hello@madushan.dev"
+			},
+			"keywords": ["sanity", "cms", "groq", "review"],
+			"category": "code-review"
 		},
 		{
 			"name": "security-reviewer",

@@ -33,8 +33,8 @@ category, show the scan-based recommendations pre-marked, and wait for the user'
 reply before moving to the next. Keep messages tight — show the choices, not an
 essay. Only write inside `.claude/` and `CLAUDE.md`; never touch anything else.
 
-Source files live under `${CLAUDE_PLUGIN_ROOT}`:
-`${CLAUDE_PLUGIN_ROOT}/agents/`, `/rules/`, `/hooks/`, `/templates/`, and the
+Source files live under `${CLAUDE_PLUGIN_ROOT}/template/`:
+`agents/`, `rules/`, `hooks/`, `CLAUDE.md`, `settings.json`, and the
 catalogs in `${CLAUDE_PLUGIN_ROOT}/skills/setup-claude/references/`.
 
 ## Step 1 — Scan the project
@@ -156,16 +156,16 @@ the contract — Step 4 installs and removes exactly what it lists.
 Apply the approved plan exactly:
 
 - **Agents:** create `.claude/agents/`; copy each selected
-  `${CLAUDE_PLUGIN_ROOT}/agents/<name>.md` → `.claude/agents/<name>.md`.
+  `${CLAUDE_PLUGIN_ROOT}/template/agents/<name>.md` → `.claude/agents/<name>.md`.
 - **Rules:** create `.claude/rules/`; copy each selected
-  `${CLAUDE_PLUGIN_ROOT}/rules/<name>.md` → `.claude/rules/<name>.md`. For any
+  `${CLAUDE_PLUGIN_ROOT}/template/rules/<name>.md` → `.claude/rules/<name>.md`. For any
   copied rule that carries a `paths:` frontmatter block, rewrite the globs to
   the real source/migration/frontend dirs found in Step 1 (with monorepo
   package prefixes, e.g. `apps/web/src/api/**`, when applicable). Show the
   rewritten frontmatter before writing — never leave a rule's `paths:` pointing
   at a directory structure the project doesn't have.
 - **Hooks:** create `.claude/hooks/`; copy each selected hook script from
-  `${CLAUDE_PLUGIN_ROOT}/hooks/` → `.claude/hooks/`, `chmod +x` them, then merge
+  `${CLAUDE_PLUGIN_ROOT}/template/hooks/` → `.claude/hooks/`, `chmod +x` them, then merge
   the matching registration entries into `.claude/settings.json` (create if
   missing; merge without clobbering existing hooks; do not duplicate an entry
   that already exists; only add entries for hooks actually selected). Use the
@@ -179,7 +179,7 @@ Apply the approved plan exactly:
   directory (the repo URL and skill name come from the catalog). Private repos (e.g.
   `madushan/next-pro-seo`) need `gh auth` — treat an auth failure as non-fatal and
   continue. There is no marketplace/plugin install step.
-- **CLAUDE.md:** if selected, copy `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.template.md`
+- **CLAUDE.md:** if selected, copy `${CLAUDE_PLUGIN_ROOT}/template/CLAUDE.md`
   → `./CLAUDE.md`. Then run the budget check: `grep -cv '^[[:space:]]*$' CLAUDE.md`.
   - Under 25 non-blank lines: pass, no message needed.
   - 25-50: warn — list the longest sections, ask the user (one

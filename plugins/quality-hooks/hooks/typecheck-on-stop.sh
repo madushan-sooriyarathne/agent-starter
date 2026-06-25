@@ -1,0 +1,1 @@
+../../../hooks/typecheck-on-stop.sh
