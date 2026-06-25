@@ -100,7 +100,7 @@ End the report with the highest-leverage trim recommendation if any class is ove
 
 | Class                          | Target              | Hard cap            | Action when over |
 |-------------------------------|--------------------|--------------------|------------------|
-| `CLAUDE.md`                   | <25 non-blank lines | <50 non-blank lines | Trim per Phase 4 of `/setupdotclaude`. |
+| `CLAUDE.md`                   | <25 non-blank lines | <50 non-blank lines | Trim per Phase 4 of `/setup-claude`. |
 | Each always-loaded rule       | <30 lines, ~250 tok | n/a                 | Push content to a path-scoped rule or into an agent. |
 | Total always-loaded           | <1000 tokens        | <1500 tokens        | Identify the single biggest contributor and trim it. |
 
