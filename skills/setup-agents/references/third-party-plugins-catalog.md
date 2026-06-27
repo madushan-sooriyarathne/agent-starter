@@ -95,7 +95,7 @@ for god nodes and community structure. Use it to locate high-impact files before
 
 ---
 
-## Handling in setup-claude flow
+## Handling in setup-agents flow
 
 1. Present all three as a batch (AskUserQuestion multi-select, all pre-checked).
 2. For each selected plugin, apply its install sequence above in order.

@@ -1,27 +1,46 @@
 ---
-name: setup-claude
+name: setup-agents
 description: >
-  This skill should be used when the user runs "/setup-claude" or asks to
-  "set up Claude Code in this project", "scaffold a .claude folder", "add agents
-  and rules to this repo", "install my Claude config", or "configure Claude for
-  this codebase". It scans the current project for its actual stack (JS/TS,
-  Python, Go, Rust, Ruby, Java, or anything else evidence supports), then
-  interactively installs review agents, rules, deterministic hooks, recommended
-  skills, and a CLAUDE.md template — with deeper built-in signals for a
-  Next.js / Turborepo / Hono+Bun / Drizzle / BetterAuth / Sanity / Biome stack
+  This skill should be used when the user runs "/setup-agents" or asks to
+  "set up Claude Code in this project", "set up Antigravity", "scaffold a .claude
+  or .agents folder", "add agents and rules to this repo", "install my agent
+  config", or "configure Claude/Antigravity for this codebase". It scans the
+  current project for its actual stack (JS/TS, Python, Go, Rust, Ruby, Java, or
+  anything else evidence supports), then interactively installs review agents,
+  rules, deterministic hooks, recommended skills, and a CLAUDE.md/AGENTS.md
+  template — targeting whichever host it runs in (Claude Code → .claude/,
+  Antigravity → .agents/plugins/setup-agents/) — with deeper built-in signals for
+  a Next.js / Turborepo / Hono+Bun / Drizzle / BetterAuth / Sanity / Biome stack
   where present.
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
-# /setup-claude
+# /setup-agents
 
-Scaffold a tailored `.claude/` workspace into the current project. This skill is
-the in-session entry point; `install.sh` at the plugin root is the terminal
-equivalent and runs the same flow.
+Scaffold a tailored agent workspace into the current project for the host you are
+running in. This skill is the in-session entry point; `install.sh` at the plugin
+root is the terminal equivalent and runs the same flow.
 
 **Target directory is always the current working directory.** Do not ask the user
 to confirm the directory — the in-session CWD is the target.
+
+## Step 0 — Detect the host
+
+Pick the materialization target from the host you are running in. **Do not ask** —
+detect it:
+
+- **Claude Code** — `$CLAUDE_PLUGIN_ROOT` or `$CLAUDE_PROJECT_DIR` is set, or you
+  are otherwise running as Claude Code. Target `.claude/{agents,rules,hooks}` +
+  `settings.json` + `CLAUDE.md`. This is the default; **Steps 1–6 below describe
+  this path.**
+- **Antigravity** — those env vars are absent and you are running inside
+  Antigravity. Target `.agents/plugins/setup-agents/`. Run the **same** Steps 1–3
+  (scan, confirm, plan); then materialize per the **"Antigravity install"**
+  section near the end instead of Steps 4–5.
+
+The scan and selection logic is host-agnostic. Only how the plan is written to
+disk differs.
 
 **Governing principle:** install nothing without evidence and consent. Every
 agent, rule, hook, and skill installed must be justified by something found in
@@ -35,7 +54,7 @@ essay. Only write inside `.claude/` and `CLAUDE.md`; never touch anything else.
 
 Source files live under `${CLAUDE_PLUGIN_ROOT}/template/`:
 `agents/`, `rules/`, `hooks/`, `CLAUDE.md`, `settings.json`, and the
-catalogs in `${CLAUDE_PLUGIN_ROOT}/skills/setup-claude/references/`.
+catalogs in `${CLAUDE_PLUGIN_ROOT}/skills/setup-agents/references/`.
 
 ## Step 1 — Scan the project
 
@@ -192,7 +211,7 @@ Go in this order, one turn each:
    to `~/.claude/`); Graphify is a system tool that writes to the project `CLAUDE.md`.
 5. **Skills** — read `references/skills-catalog.md`. Present in two groups:
    - **Bundled skills** (already included with this plugin — no install needed): scan
-     `${CLAUDE_PLUGIN_ROOT}/skills/` for subdirectory names, exclude `setup-claude`
+     `${CLAUDE_PLUGIN_ROOT}/skills/` for subdirectory names, exclude `setup-agents`
      itself. Show each bundled skill with its one-line description and pre-mark per
      the **Recommend when** column in the catalog's "Bundled Skills" section. Selected
      bundled skills are logged as "already available" — no action required at install.
@@ -314,11 +333,11 @@ implements this mode and already reads `.claude/.claude-code-starter.json`
 back for the drift nudge — nothing to build here, just invoke it). From then
 on, `session-start` emits a one-line "config drift" nudge whenever the
 manifests change (new scripts, new framework, new package manager) — the
-signal to re-run `/setup-claude`. Tell the user to commit this file so the
+signal to re-run `/setup-agents`. Tell the user to commit this file so the
 whole team shares the baseline.
 
 If `session-start` was not installed, skip this and tell the user to re-run
-`/setup-claude` manually after stack changes — there is no other drift signal.
+`/setup-agents` manually after stack changes — there is no other drift signal.
 
 Do not write any other install-record file. Gap-analysis mode (Step 1) reads
 `.claude/` directly on every run instead of relying on a separate JSON record.
@@ -339,9 +358,52 @@ Do not write any other install-record file. Gap-analysis mode (Step 1) reads
    Tell the user to **restart Claude Code** so the new agents, rules, and hooks
    are picked up.
 
+## Antigravity install
+
+Reached only when Step 0 detected Antigravity. Run Steps 1–3 unchanged (same
+scan, same catalogs, same plan table), then materialize the approved plan into
+`.agents/plugins/setup-agents/` instead of `.claude/`. Antigravity's plugin
+layout mirrors Claude's, with three differences that matter:
+
+- **Agents have no static file format** (Antigravity subagents are defined at
+  runtime). Ship each selected agent as a **skill** instead: write
+  `.agents/plugins/setup-agents/skills/<name>/SKILL.md` with frontmatter reduced
+  to `name` + `description` and the agent's body carried verbatim. It becomes a
+  `/<name>` slash command.
+- **Only the four PreToolUse safety hooks port** (`block-dangerous-commands`,
+  `scan-secrets`, `protect-files`, `warn-large-files`). Antigravity's PostToolUse
+  carries no tool arguments, so the quality hooks (format-on-save, auto-test,
+  typecheck/lint-on-stop, session-start, notify) **do not** apply — skip them
+  with a note.
+- **Project context goes in `AGENTS.md`** at the project root, not `CLAUDE.md`.
+
+Materialize:
+
+- **plugin.json** — write `{"name":"setup-agents","description":...}` at the
+  bundle root (required marker).
+- **Rules** → `rules/<name>.md`, identical markdown; apply the same `paths:`
+  rewrite as the Claude path.
+- **Agents** → `skills/<name>/SKILL.md` per the conversion above.
+- **Hooks** → copy `hooks/antigravity-adapter.sh` and each supported safety
+  script into the bundle root, `chmod +x`, then write `hooks.json` mapping each
+  hook to a `PreToolUse` handler that runs the adapter:
+  `"command": "AG_HOOK=<name> bash \"<abs>/.agents/plugins/setup-agents/antigravity-adapter.sh\""`,
+  matcher `run_command` for `block-dangerous-commands`, else
+  `write_to_file|replace_file_content|multi_replace_file_content`. The adapter
+  translates Antigravity's stdin/stdout contract to the Claude-shaped one the
+  scripts expect — the scripts themselves are unchanged.
+- **AGENTS.md** → copy the `CLAUDE.md` template to `./AGENTS.md` (skip if it
+  already exists).
+
+The terminal `install.sh` implements exactly this; prefer matching its output.
+Verify `hooks.json` is valid JSON, then report per Step 6 (drop the drift
+fingerprint — no `session-start` on Antigravity). Tell the user to reload
+Antigravity so the plugin is discovered.
+
 ## Guardrails
 
-- Only ever write under `.claude/` and `./CLAUDE.md` in the target project.
+- Only ever write under `.claude/` + `./CLAUDE.md` (Claude) or
+  `.agents/plugins/setup-agents/` + `./AGENTS.md` (Antigravity) in the target.
 - Never overwrite, remove, or install a file without it appearing in the
   approved Step 3 plan first.
 - If a category has no recommendations and the user skips it, that's fine — record

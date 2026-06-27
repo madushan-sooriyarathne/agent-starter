@@ -3,7 +3,7 @@
 ## Bundled Skills
 
 These skills ship with this plugin and are **already available** — no install command
-needed. When selected in setup-claude, they are logged as "available (bundled)" in the
+needed. When selected in setup-agents, they are logged as "available (bundled)" in the
 summary. Surface them to the user so they know what they have.
 
 | #   | Skill            | Description                                                                                          | Recommend when                                                  |

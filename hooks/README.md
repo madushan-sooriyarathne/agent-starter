@@ -69,7 +69,7 @@ Injects dynamic project context at session start.
 
 The verbose payload runs ~30 to 90 tokens per session. Default is recommended for daily iterative work where every new conversation pays this cost.
 
-**Drift nudge**: if `.claude/.claude-code-starter.json` exists (written by `/setup-claude` at the end of setup), the hook hashes the project's manifests (`package.json` scripts, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `composer.json`, `Makefile`) and appends a one-line re-tune nudge only when the hash no longer matches. `CLAUDE_CODE_STARTER_FINGERPRINT=1 session-start.sh` prints the fingerprint JSON (how the skill writes the file); `CLAUDE_CODE_STARTER_META` overrides the fingerprint path (used by tests).
+**Drift nudge**: if `.claude/.claude-code-starter.json` exists (written by `/setup-agents` at the end of setup), the hook hashes the project's manifests (`package.json` scripts, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `composer.json`, `Makefile`) and appends a one-line re-tune nudge only when the hash no longer matches. `CLAUDE_CODE_STARTER_FINGERPRINT=1 session-start.sh` prints the fingerprint JSON (how the skill writes the file); `CLAUDE_CODE_STARTER_META` overrides the fingerprint path (used by tests).
 
 ### auto-test.sh
 **Event**: PostToolUse (`Edit` | `Write`)
@@ -100,6 +100,11 @@ Same dirty-marker/Stop pattern as `typecheck-on-stop.sh`, for linting.
 **Event**: Notification
 
 Sends a native OS notification when Claude needs your attention. Supports macOS (`osascript`), Linux (`notify-send`), and WSL (PowerShell toast). Extracts the actual message from the hook input when `jq` is available. Exits silently when no notifier exists. Set `CLAUDE_CODE_STARTER_NOTIFY_DRYRUN=1` to print instead of notify (used by the test fixtures).
+
+### antigravity-adapter.sh
+**Host**: Google Antigravity (not wired in Claude's `settings.json`)
+
+Translation shim so the four PreToolUse safety hooks run unchanged on Antigravity. Reads Antigravity's `{"toolCall":{"name","args"}}` stdin, rebuilds the Claude-shaped `{"tool_name","tool_input"}` payload the real hook expects, runs it, then maps its exit-2 + `hookSpecificOutput` back to Antigravity's `{"decision","reason"}` stdout. The wrapped hook is named via `AG_HOOK` (env, preferred) or `$1`. Always exits 0 — the gate lives in stdout. Installed (with the safety scripts and a generated `hooks.json`) into `.agents/plugins/setup-agents/` by `install.sh` when the Antigravity host is selected. No jq → degrades to `"ask"`.
 
 ## Adding your own
 

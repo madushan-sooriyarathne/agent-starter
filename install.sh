@@ -2,9 +2,11 @@
 #
 # claude-code-starter — install.sh
 #
-# Terminal entry point. Scaffolds a tailored .claude/ workspace (agents, rules,
-# hooks, skills) and CLAUDE.md into a project. Same flow as the /setup-claude
-# slash command. Standard bash + bunx only; no fzf/dialog/jq dependencies.
+# Terminal entry point. Scaffolds a tailored agent workspace into a project for
+# one or both supported hosts:
+#   - Claude Code  -> .claude/{agents,rules,hooks} + settings.json + CLAUDE.md
+#   - Antigravity  -> .agents/plugins/setup-agents/{skills,rules,hooks.json} + AGENTS.md
+# Same flow as the /setup-agents slash command. Standard bash + bunx only.
 #
 # Usage:  ./install.sh
 #
@@ -14,7 +16,12 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION="0.3.0"
+VERSION="0.4.0"
+
+# Hooks whose Claude logic ports to Antigravity. AG PostToolUse carries no tool
+# args, so only the PreToolUse safety guardrails are eligible there.
+AG_SUPPORTED_HOOKS="block-dangerous-commands scan-secrets protect-files warn-large-files"
+AG_PLUGIN_NAME="setup-agents"
 
 # ---- pretty output -------------------------------------------------------
 if [ -t 1 ]; then
@@ -54,7 +61,7 @@ json_array() {
   printf '[%s]' "$out"
 }
 
-say "${BOLD}claude-code-starter${RESET} v$VERSION — Claude Code project setup"
+say "${BOLD}claude-code-starter${RESET} v$VERSION — agent project setup"
 
 # ========================================================================
 # Step 0 — Target directory (install.sh only)
@@ -75,6 +82,26 @@ if [ ! -d "$TARGET" ]; then
   say "${YELLOW}Path is not a directory:${RESET} $TARGET"; exit 1
 fi
 TARGET="$(cd "$TARGET" && pwd)"
+
+# ========================================================================
+# Step 0.5 — Target platform(s)
+# ========================================================================
+# WANT_CLAUDE / WANT_AG gate the two materialization paths in Step 4. Selection
+# (agents/rules/hooks) is host-agnostic; only how it's written to disk differs.
+WANT_CLAUDE=1; WANT_AG=0
+say ""
+say "Which agent host(s) to set up?"
+say "  1) Claude Code  ${DIM}(.claude/, default)${RESET}"
+say "  2) Antigravity  ${DIM}(.agents/plugins/$AG_PLUGIN_NAME/)${RESET}"
+say "  3) Both"
+printf "> "
+ask_line
+case "$REPLY_LINE" in
+  ""|1|claude|Claude)        WANT_CLAUDE=1; WANT_AG=0 ;;
+  2|antigravity|Antigravity) WANT_CLAUDE=0; WANT_AG=1 ;;
+  3|both|Both)               WANT_CLAUDE=1; WANT_AG=1 ;;
+  *)                         WANT_CLAUDE=1; WANT_AG=0; say "  ${DIM}Unrecognized — defaulting to Claude Code.${RESET}" ;;
+esac
 
 # ---- mechanical detection helpers (no node_modules/.git/vendor/build noise) ----
 PRUNE_EXPR=( -path '*/node_modules/*' -o -path '*/.git/*' -o -path '*/vendor/*' -o -path '*/dist/*' -o -path '*/build/*' -o -path '*/.next/*' )
@@ -457,6 +484,9 @@ fi
 # ========================================================================
 head "Installing"
 
+if [ "$WANT_CLAUDE" = "1" ]; then
+say "${DIM}Claude Code → .claude/${RESET}"
+
 if [ ${#sel_agents[@]} -gt 0 ]; then
   mkdir -p "$TARGET/.claude/agents"
   for a in "${sel_agents[@]}"; do
@@ -682,13 +712,117 @@ else
   skip "session-start hook not installed — no drift detection; re-run install.sh manually after stack changes"
 fi
 
+fi  # end WANT_CLAUDE
+
+# ========================================================================
+# Step 4b — Antigravity install (.agents/plugins/<name>/)
+# ========================================================================
+# Antigravity's plugin layout mirrors Claude's: markdown skills + rules + hooks.
+# Our agents have no static AG schema, so they ship as skills (auto slash cmds);
+# our bash hooks run unchanged behind antigravity-adapter.sh.
+AG_INSTALLED_SKILLS=(); AG_INSTALLED_RULES=(); AG_INSTALLED_HOOKS=()
+if [ "$WANT_AG" = "1" ]; then
+  head "Antigravity → .agents/plugins/$AG_PLUGIN_NAME/"
+  AG_ROOT="$TARGET/.agents/plugins/$AG_PLUGIN_NAME"
+  mkdir -p "$AG_ROOT"
+
+  # plugin.json — required marker.
+  cat > "$AG_ROOT/plugin.json" <<JSON
+{
+  "\$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "$AG_PLUGIN_NAME",
+  "description": "Project guardrails, rules, and reviewer skills scaffolded by claude-code-starter."
+}
+JSON
+  ok "plugin.json"
+
+  # Rules → rules/<name>.md (identical markdown convention).
+  if [ ${#sel_rules[@]} -gt 0 ]; then
+    mkdir -p "$AG_ROOT/rules"
+    for r in "${sel_rules[@]}"; do
+      if copy_managed "$SCRIPT_DIR/rules/$r.md" "$AG_ROOT/rules/$r.md" "rule: $r"; then
+        AG_INSTALLED_RULES+=("$r")
+        if [ -n "$PRIMARY_SRC_DIR" ] && grep -q '^paths:' "$AG_ROOT/rules/$r.md" 2>/dev/null; then
+          sed -i.bak "/^paths:/,/^---/ s#\"src/#\"$PRIMARY_SRC_DIR/#g" "$AG_ROOT/rules/$r.md"; rm -f "$AG_ROOT/rules/$r.md.bak"
+        fi
+      fi
+    done
+  fi
+
+  # Agents → skills/<name>/SKILL.md. AG subagents have no static file format, so
+  # the agent's instructions ship as a skill (becomes a /<name> slash command).
+  # Frontmatter is reduced to name+description; the body is carried verbatim.
+  if [ ${#sel_agents[@]} -gt 0 ]; then
+    for a in "${sel_agents[@]}"; do
+      src="$SCRIPT_DIR/agents/$a.md"
+      [ -f "$src" ] || { skip "agent: $a (source missing)"; continue; }
+      dest_dir="$AG_ROOT/skills/$a"; dest="$dest_dir/SKILL.md"
+      if [ -e "$dest" ]; then skip "skill: $a (exists, kept)"; continue; fi
+      mkdir -p "$dest_dir"
+      desc="$(awk -F': ' '/^description:/{ $1=""; sub(/^: /,""); print substr($0,2); exit }' "$src")"
+      {
+        printf '%s\n' "---"
+        printf 'name: %s\n' "$a"
+        printf 'description: %s\n' "${desc:-$a}"
+        printf '%s\n' "---"
+        # Body = everything after the closing frontmatter delimiter.
+        awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$src"
+      } > "$dest"
+      ok "skill (from agent): $a"; AG_INSTALLED_SKILLS+=("$a")
+    done
+  fi
+
+  # Hooks → copy adapter + supported safety scripts, generate hooks.json.
+  ag_hooks=()
+  for h in "${sel_hooks[@]:-}"; do
+    [ -n "$h" ] || continue
+    case " $AG_SUPPORTED_HOOKS " in *" $h "*) ag_hooks+=("$h") ;; *) skip "hook: $h (not supported on Antigravity)" ;; esac
+  done
+  if [ ${#ag_hooks[@]} -gt 0 ]; then
+    cp "$SCRIPT_DIR/hooks/antigravity-adapter.sh" "$AG_ROOT/antigravity-adapter.sh" && chmod +x "$AG_ROOT/antigravity-adapter.sh"
+    for h in "${ag_hooks[@]}"; do
+      cp "$SCRIPT_DIR/hooks/$h.sh" "$AG_ROOT/$h.sh" && chmod +x "$AG_ROOT/$h.sh" && AG_INSTALLED_HOOKS+=("$h")
+    done
+    # hooks.json: map each hook to a PreToolUse handler through the adapter.
+    ADAPTER="$AG_ROOT/antigravity-adapter.sh"
+    WRITE_MATCHER="write_to_file|replace_file_content|multi_replace_file_content"
+    {
+      printf '{\n'
+      first=1
+      for h in "${ag_hooks[@]}"; do
+        case "$h" in block-dangerous-commands) m="run_command" ;; *) m="$WRITE_MATCHER" ;; esac
+        [ $first -eq 1 ] && first=0 || printf ',\n'
+        printf '  "%s": {\n    "PreToolUse": [\n      {\n        "matcher": "%s",\n        "hooks": [\n          { "type": "command", "command": "AG_HOOK=%s bash \\"%s\\"", "timeout": 10 }\n        ]\n      }\n    ]\n  }' "$h" "$m" "$h" "$ADAPTER"
+      done
+      printf '\n}\n'
+    } > "$AG_ROOT/hooks.json"
+    ok "hooks.json (${#ag_hooks[@]} guardrail$([ ${#ag_hooks[@]} -ne 1 ] && echo s) via adapter)"
+  fi
+
+  # Project context → AGENTS.md (Antigravity's CLAUDE.md equivalent).
+  if [ "$WANT_CLAUDEMD" = "1" ] && [ -f "$SCRIPT_DIR/templates/CLAUDE.template.md" ]; then
+    if [ -e "$TARGET/AGENTS.md" ]; then skip "AGENTS.md (exists, kept)"
+    else cp "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/AGENTS.md" && ok "AGENTS.md"; fi
+  fi
+fi
+
 # ========================================================================
 # Step 6 — Verify and report
 # ========================================================================
 head "Verify"
-for h in "${sel_hooks[@]:-}"; do
-  [ -n "$h" ] && [ ! -x "$TARGET/.claude/hooks/$h.sh" ] && say "  ${YELLOW}warn${RESET}: hook not executable: $h"
-done
+if [ "$WANT_CLAUDE" = "1" ]; then
+  for h in "${sel_hooks[@]:-}"; do
+    [ -n "$h" ] && [ ! -x "$TARGET/.claude/hooks/$h.sh" ] && say "  ${YELLOW}warn${RESET}: hook not executable: $h"
+  done
+fi
+if [ "$WANT_AG" = "1" ]; then
+  for h in "${AG_INSTALLED_HOOKS[@]:-}"; do
+    [ -n "$h" ] && [ ! -x "$TARGET/.agents/plugins/$AG_PLUGIN_NAME/$h.sh" ] && say "  ${YELLOW}warn${RESET}: AG hook not executable: $h"
+  done
+  command -v jq >/dev/null 2>&1 && [ -f "$TARGET/.agents/plugins/$AG_PLUGIN_NAME/hooks.json" ] \
+    && { jq empty "$TARGET/.agents/plugins/$AG_PLUGIN_NAME/hooks.json" 2>/dev/null \
+         && ok "hooks.json is valid JSON" || say "  ${YELLOW}warn${RESET}: hooks.json failed JSON validation"; }
+fi
 
 TOKEN_CHARS=0
 [ -f "$TARGET/CLAUDE.md" ] && TOKEN_CHARS=$((TOKEN_CHARS + $(wc -c < "$TARGET/CLAUDE.md" | tr -d ' ')))
@@ -698,16 +832,28 @@ for r in "${sel_rules[@]:-}"; do
 done
 TOKEN_EST=$((TOKEN_CHARS / 4))
 
+plats=""; [ "$WANT_CLAUDE" = "1" ] && plats="Claude Code"; [ "$WANT_AG" = "1" ] && plats="${plats:+$plats + }Antigravity"
 head "Done"
 say "  Target:             $TARGET"
-say "  Agents:              ${sel_agents[*]:-(none)}"
-say "  Rules:               ${sel_rules[*]:-(none)}"
-say "  Hooks:               ${sel_hooks[*]:-(none)}"
-say "  Plugins:             ${sel_plugins[*]:-(none)}"
-say "  Skills:              ${sel_skills[*]:-(none)}"
-say "  CLAUDE.md:           $CLAUDEMD_VERDICT"
-say "  Removed:             agents=${REMOVE_AGENTS[*]:-none} rules=${REMOVE_RULES[*]:-none} hooks=${REMOVE_HOOKS[*]:-none}"
-say "  Always-loaded est.:  ~${TOKEN_EST} tokens (CLAUDE.md + path-less rules)"
+say "  Platform(s):         $plats"
+if [ "$WANT_CLAUDE" = "1" ]; then
+  say "  ${BOLD}Claude Code (.claude/)${RESET}"
+  say "    Agents:            ${sel_agents[*]:-(none)}"
+  say "    Rules:             ${sel_rules[*]:-(none)}"
+  say "    Hooks:             ${sel_hooks[*]:-(none)}"
+  say "    Plugins:           ${sel_plugins[*]:-(none)}"
+  say "    Skills:            ${sel_skills[*]:-(none)}"
+  say "    CLAUDE.md:         $CLAUDEMD_VERDICT"
+  say "    Removed:           agents=${REMOVE_AGENTS[*]:-none} rules=${REMOVE_RULES[*]:-none} hooks=${REMOVE_HOOKS[*]:-none}"
+fi
+if [ "$WANT_AG" = "1" ]; then
+  say "  ${BOLD}Antigravity (.agents/plugins/$AG_PLUGIN_NAME/)${RESET}"
+  say "    Skills:            ${AG_INSTALLED_SKILLS[*]:-(none)}"
+  say "    Rules:             ${AG_INSTALLED_RULES[*]:-(none)}"
+  say "    Hooks:             ${AG_INSTALLED_HOOKS[*]:-(none)} ${DIM}(safety guardrails only)${RESET}"
+fi
+say "  Always-loaded est.:  ~${TOKEN_EST} tokens (CLAUDE.md/AGENTS.md + path-less rules)"
 [ "$TOKEN_EST" -gt 1000 ] 2>/dev/null && say "  ${YELLOW}Consider trimming — over the ~1000 token always-loaded budget.${RESET}"
 say ""
-say "${YELLOW}Restart Claude Code${RESET} so the new agents, rules, and hooks are picked up."
+[ "$WANT_CLAUDE" = "1" ] && say "${YELLOW}Restart Claude Code${RESET} so the new agents, rules, and hooks are picked up."
+[ "$WANT_AG" = "1" ] && say "${YELLOW}Reload Antigravity${RESET} (or run 'agy plugin list') so the $AG_PLUGIN_NAME plugin is discovered."

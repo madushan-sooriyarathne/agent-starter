@@ -1,12 +1,21 @@
 # claude-code-starter
 
-A Claude Code plugin marketplace: 22 plugins (agents, skills, hooks, rules) that scaffold a tailored `.claude/` workspace into any project.
+A Claude Code plugin marketplace: 22 plugins (agents, skills, hooks, rules) that scaffold a tailored agent workspace into any project. Targets **Claude Code** (`.claude/`) and **Google Antigravity** (`.agents/plugins/setup-agents/`).
+
+## Hosts
+
+| Host | Layout | Components ported |
+| --- | --- | --- |
+| Claude Code | `.claude/{agents,rules,hooks}` + `settings.json` + `CLAUDE.md` | all |
+| Antigravity | `.agents/plugins/setup-agents/` + `AGENTS.md` | rules, agents→skills, 4 safety hooks via adapter |
+
+On Antigravity, agents ship as **skills** (auto `/<name>` slash commands — Antigravity subagents have no static file format), and only the four PreToolUse safety hooks port (its PostToolUse carries no tool args). The bash hooks run unchanged behind `hooks/antigravity-adapter.sh`, which translates Antigravity's stdin/stdout hook contract to the Claude-shaped one.
 
 ## Entry points
 
-### `/setup-claude` (inside Claude Code)
+### `/setup-agents` (inside Claude Code or Antigravity)
 
-Invoke the slash command in any session. Scans the project, recommends the right subset, and installs only what the evidence justifies. On an existing `.claude/` it runs as a gap analysis.
+Invoke the slash command in any session. It detects the host, scans the project, recommends the right subset, and installs only what the evidence justifies. On an existing config it runs as a gap analysis.
 
 ### `./install.sh` (terminal)
 
@@ -14,9 +23,9 @@ Invoke the slash command in any session. Scans the project, recommends the right
 ./install.sh
 ```
 
-Same flow as `/setup-claude` but driven from the shell. Detects target directory, prints numbered checklists per category, accepts space-separated numbers / `a` / `n` / Enter for defaults. Requires bash + `bunx`.
+Same flow as `/setup-agents` but driven from the shell. Prompts for the target host (Claude Code / Antigravity / both), detects the target directory, prints numbered checklists per category, accepts space-separated numbers / `a` / `n` / Enter for defaults. Requires bash + `bunx`.
 
-Both entry points write `.claude/.claude-code-starter.json` — a record of version, timestamp, detected stack, and what was installed.
+On Claude Code, both entry points write `.claude/.claude-code-starter.json` — a drift fingerprint of the detected stack used by the `session-start` hook. (Antigravity has no `session-start` event, so no fingerprint is written there.)
 
 ## What gets installed
 
@@ -98,7 +107,7 @@ Hooks exit `0` to allow and `2` to block; stderr is fed back to Claude.
 
 | Skill            | Invoke          | Purpose                                                              |
 | ---------------- | --------------- | -------------------------------------------------------------------- |
-| `setup-claude`   | `/setup-claude` | Scan → plan → install `.claude/` config, evidence-driven             |
+| `setup-agents`   | `/setup-agents` | Scan → plan → install `.claude/` config, evidence-driven             |
 | `catchup`        | `/catchup`      | Rebuild context after `/clear`; `handoff` to write the session note  |
 | `debug-fix`      | `/debug-fix`    | Careful bug fix. `--fast` for hotfix branch                          |
 | `explain`        | `/explain`      | One-sentence summary + mental model; `verbose` for ASCII diagram     |
@@ -139,7 +148,7 @@ bunx skills add <repo-url> --skill <skill-name> -a claude-code -y
 
 ### Third-party plugins
 
-`/setup-claude` also offers three third-party plugins (all pre-selected by default):
+`/setup-agents` also offers three third-party plugins (all pre-selected by default):
 
 | Plugin      | What it does                                                   | Install mechanism                                               |
 | ----------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -167,7 +176,7 @@ All 22 plugins are individually installable via the Claude Code plugin system:
 claude plugin marketplace add madushan/claude-code-starter
 
 # Install a single plugin
-claude plugin install setup-claude@claude-code-starter
+claude plugin install setup-agents@claude-code-starter
 claude plugin install safety-hooks@claude-code-starter
 claude plugin install quality-hooks@claude-code-starter
 ```
@@ -183,7 +192,7 @@ claude-code-starter/
 ├── skills/                           # 11 bundled skill dirs
 ├── plugins/                          # 22 plugin dirs (plugin.json + symlinks)
 ├── templates/
-│   ├── CLAUDE.template.md            # shipped to user projects by /setup-claude
+│   ├── CLAUDE.template.md            # shipped to user projects by /setup-agents
 │   └── settings.json                 # hook-wired settings template
 ├── install.sh                        # terminal entry point
 └── README.md
