@@ -334,11 +334,11 @@ If the `session-start` hook was installed, write the drift fingerprint so the
 setup stays tuned over time:
 
 ```bash
-[ -x .claude/hooks/session-start.sh ] && CLAUDE_CODE_STARTER_FINGERPRINT=1 .claude/hooks/session-start.sh > .claude/.claude-code-starter.json
+[ -x .claude/hooks/session-start.sh ] && AGENT_STARTER_FINGERPRINT=1 .claude/hooks/session-start.sh > .claude/.agent-starter.json
 ```
 
-This hashes the project's manifests (`hooks/session-start.sh` already
-implements this mode and already reads `.claude/.claude-code-starter.json`
+This hashes the project's manifests (`hooks/claude/session-start.sh` already
+implements this mode and already reads `.claude/.agent-starter.json`
 back for the drift nudge — nothing to build here, just invoke it). From then
 on, `session-start` emits a one-line "config drift" nudge whenever the
 manifests change (new scripts, new framework, new package manager) — the
@@ -395,14 +395,13 @@ Materialize:
 - **Rules** → `rules/<name>.md`, identical markdown; apply the same `paths:`
   rewrite as the Claude path.
 - **Agents** → `skills/<name>/SKILL.md` per the conversion above.
-- **Hooks** → copy `hooks/antigravity-adapter.sh` and each supported safety
-  script into the bundle root, `chmod +x`, then write `hooks.json` mapping each
-  hook to a `PreToolUse` handler that runs the adapter:
-  `"command": "AG_HOOK=<name> bash \"<abs>/.agents/plugins/setup-agents/antigravity-adapter.sh\""`,
+- **Hooks** → copy each supported hook's native script from `hooks/antigravity/<name>.sh`
+  (not the `hooks/claude/` one — Antigravity gets its own duplicated-logic
+  implementation, no translation shim) into the bundle root, `chmod +x`, then
+  write `hooks.json` mapping each hook straight to a `PreToolUse` handler:
+  `"command": "bash \"<abs>/.agents/plugins/setup-agents/<name>.sh\""`,
   matcher `run_command` for `block-dangerous-commands`, else
-  `write_to_file|replace_file_content|multi_replace_file_content`. The adapter
-  translates Antigravity's stdin/stdout contract to the Claude-shaped one the
-  scripts expect — the scripts themselves are unchanged.
+  `write_to_file|replace_file_content|multi_replace_file_content`.
 - **AGENTS.md** → copy the `CLAUDE.md` template to `./AGENTS.md` (skip if it
   already exists).
 

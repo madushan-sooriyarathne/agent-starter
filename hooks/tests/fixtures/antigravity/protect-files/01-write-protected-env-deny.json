@@ -1,6 +1,5 @@
 {
   "name": "write_to_file targeting .env mapped to deny",
-  "env": { "AG_HOOK": "protect-files" },
   "stdin": { "toolCall": { "name": "write_to_file", "args": { "TargetFile": ".env", "CodeContent": "X=1" } } },
   "expect_exit": 0,
   "expect_stdout_contains": ["\"decision\":\"deny\""]

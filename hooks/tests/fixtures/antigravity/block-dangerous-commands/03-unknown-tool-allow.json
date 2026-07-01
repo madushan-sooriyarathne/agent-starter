@@ -1,6 +1,5 @@
 {
   "name": "unmatched tool name passes through as allow",
-  "env": { "AG_HOOK": "block-dangerous-commands" },
   "stdin": { "toolCall": { "name": "view_file", "args": { "AbsolutePath": "/etc/hosts" } } },
   "expect_exit": 0,
   "expect_stdout_contains": ["\"decision\":\"allow\""]

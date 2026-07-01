@@ -2,11 +2,15 @@
 
 Hook scripts are deterministic enforcement. Unlike rules (advisory), hooks **guarantee** behavior by blocking or modifying tool calls before or after they execute.
 
-Hooks are wired in `settings.json` under the `"hooks"` key. Each hook specifies an event, a matcher, and a command to run. `timeout` values are in **seconds**.
+Scripts live in two host-specific directories — `claude/` and `antigravity/` — never a shared one. Each host has its own stdin/stdout contract, so a hook that runs on both hosts is **duplicated**, not shared: `hooks/claude/protect-files.sh` and `hooks/antigravity/protect-files.sh` implement the same detection rules independently. There's no translation shim between them — keep both in sync by hand when detection rules change.
 
-The four PreToolUse guards below are also packaged as the `safety-hooks` plugin (`/plugin install safety-hooks@claude-code-starter`) via `plugins/safety-hooks/hooks/hooks.json`, so you can get them without copying any files. `tests/` holds the fixture suite (`bash hooks/tests/run-all.sh`); it doesn't belong in a project's `.claude/hooks/`.
+`hooks/tests/fixtures/` mirrors the same split (`fixtures/claude/<name>/`, `fixtures/antigravity/<name>/`); `tests/` holds the fixture suite (`bash hooks/tests/run-all.sh`) and doesn't belong in a project's `.claude/hooks/`.
 
-## Available hooks
+## Claude Code hooks
+
+Wired in `settings.json` under the `"hooks"` key. Each hook specifies an event, a matcher, and a command to run. `timeout` values are in **seconds**.
+
+The four PreToolUse guards below are also packaged as the `safety-hooks` plugin (`/plugin install safety-hooks@agent-starter`) via `plugins/safety-hooks/hooks/hooks.json`, so you can get them without copying any files.
 
 ### protect-files.sh
 **Event**: PreToolUse (`Edit` | `Write`)
@@ -41,6 +45,19 @@ Blocks dangerous shell commands. Detects patterns even in chained commands (`&&`
 - **Database**: `DROP TABLE/DATABASE`, `DELETE FROM` without WHERE, `TRUNCATE TABLE`.
 - **System**: `chmod 777`, piping `curl`/`wget` to `bash`/`sh`, `mkfs`, `dd if=`, writes to `/dev/`.
 
+### scan-secrets.sh
+**Event**: PreToolUse (`Edit` | `Write`)
+
+Scans content being written for accidental secrets. Uses `ask` (not `deny`) — warns and lets you override, since a match could be a test fixture. Fails open if `jq` is missing (not a file-protection hook).
+
+- AWS access key IDs (`AKIA...`) and secret keys.
+- GitHub tokens (`ghp_`, `gho_`, `ghs_`, `ghr_`, `github_pat_`).
+- API keys shaped like `sk-...` (OpenAI, Stripe, Anthropic).
+- Slack tokens (`xox[bpras]-...`).
+- Private key blocks (`-----BEGIN ... PRIVATE KEY-----`).
+- Connection strings with embedded credentials (`mongodb://user:pass@...`, etc.).
+- Generic `password`/`secret`/`token`/`api_key` assignments with a literal string value — ignores env-var references (`process.env`, `os.environ`, `${...}`, `getenv(...)`).
+
 ### format-on-save.sh
 **Event**: PostToolUse (`Edit` | `Write`)
 
@@ -60,7 +77,7 @@ Injects dynamic project context at session start.
 
 **Default (minimal, ~5 to 10 tokens)**: current branch (or detached HEAD warning) and a `dirty` tag if there are uncommitted changes. That's it. No network calls, no extra detail.
 
-**Verbose**: set `CLAUDE_CODE_STARTER_SESSION_VERBOSE=1` in your shell to also emit:
+**Verbose**: set `AGENT_STARTER_SESSION_VERBOSE=1` in your shell to also emit:
 - Last commit oneline.
 - Uncommitted file count.
 - Staged indicator.
@@ -69,7 +86,7 @@ Injects dynamic project context at session start.
 
 The verbose payload runs ~30 to 90 tokens per session. Default is recommended for daily iterative work where every new conversation pays this cost.
 
-**Drift nudge**: if `.claude/.claude-code-starter.json` exists (written by `/setup-agents` at the end of setup), the hook hashes the project's manifests (`package.json` scripts, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `composer.json`, `Makefile`) and appends a one-line re-tune nudge only when the hash no longer matches. `CLAUDE_CODE_STARTER_FINGERPRINT=1 session-start.sh` prints the fingerprint JSON (how the skill writes the file); `CLAUDE_CODE_STARTER_META` overrides the fingerprint path (used by tests).
+**Drift nudge**: if `.claude/.agent-starter.json` exists (written by `/setup-agents` at the end of setup), the hook hashes the project's manifests (`package.json` scripts, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `composer.json`, `Makefile`) and appends a one-line re-tune nudge only when the hash no longer matches. `AGENT_STARTER_FINGERPRINT=1 session-start.sh` prints the fingerprint JSON (how the skill writes the file); `AGENT_STARTER_META` overrides the fingerprint path (used by tests).
 
 ### auto-test.sh
 **Event**: PostToolUse (`Edit` | `Write`)
@@ -99,18 +116,21 @@ Same dirty-marker/Stop pattern as `typecheck-on-stop.sh`, for linting.
 ### notify.sh
 **Event**: Notification
 
-Sends a native OS notification when Claude needs your attention. Supports macOS (`osascript`), Linux (`notify-send`), and WSL (PowerShell toast). Extracts the actual message from the hook input when `jq` is available. Exits silently when no notifier exists. Set `CLAUDE_CODE_STARTER_NOTIFY_DRYRUN=1` to print instead of notify (used by the test fixtures).
+Sends a native OS notification when Claude needs your attention. Supports macOS (`osascript`), Linux (`notify-send`), and WSL (PowerShell toast). Extracts the actual message from the hook input when `jq` is available. Exits silently when no notifier exists. Set `AGENT_STARTER_NOTIFY_DRYRUN=1` to print instead of notify (used by the test fixtures).
 
-### antigravity-adapter.sh
-**Host**: Google Antigravity (not wired in Claude's `settings.json`)
+## Antigravity-native hooks
 
-Translation shim so the four PreToolUse safety hooks run unchanged on Antigravity. Reads Antigravity's `{"toolCall":{"name","args"}}` stdin, rebuilds the Claude-shaped `{"tool_name","tool_input"}` payload the real hook expects, runs it, then maps its exit-2 + `hookSpecificOutput` back to Antigravity's `{"decision","reason"}` stdout. The wrapped hook is named via `AG_HOOK` (env, preferred) or `$1`. Always exits 0 — the gate lives in stdout. Installed (with the safety scripts and a generated `hooks.json`) into `.agents/plugins/setup-agents/` by `install.sh` when the Antigravity host is selected. No jq → degrades to `"ask"`.
+Only the four PreToolUse safety guards port — Antigravity's PostToolUse carries no tool args, so `format-on-save`/`auto-test`/`typecheck-on-stop`/`lint-on-stop`/`session-start`/`notify` stay Claude-only. Each native script reads Antigravity's `{"toolCall":{"name","args":{...}}}` stdin directly and writes `{"decision":"allow|deny|ask","reason":"..."}` to stdout, always exiting 0 (the gate lives in stdout, not the exit code) — the same detection logic as its `hooks/claude/` counterpart, reimplemented against Antigravity's contract instead of translated into it. Installed into `.agents/plugins/setup-agents/` by `install.sh` when the Antigravity host is selected.
+
+- `protect-files.sh`, `warn-large-files.sh` — file path via `.toolCall.args.TargetFile`. No jq → deny (fail closed, matches the Claude-side script).
+- `block-dangerous-commands.sh` — command via `.toolCall.args.CommandLine`, matcher `run_command`. No jq → deny.
+- `scan-secrets.sh` — content field depends on `.toolCall.name`: `write_to_file`→`CodeContent`, `replace_file_content`→`ReplacementContent`, `multi_replace_file_content`→joined `ReplacementChunks[].ReplacementContent`. No jq → allow (fail open, matches the Claude-side script — it's a warn-and-override hook, not file protection).
 
 ## Adding your own
 
-1. Create a `.sh` script in this directory.
-2. Make it executable: `chmod +x your-hook.sh`.
-3. Wire it in `settings.json`:
+1. Create a `.sh` script in `claude/` (and, if it should also guard Antigravity, a duplicate in `antigravity/` speaking its stdin/stdout contract).
+2. Make it executable: `chmod +x claude/your-hook.sh`.
+3. Wire the Claude-side script in `settings.json`:
 
 ```json
 {

@@ -1,6 +1,5 @@
 {
   "name": "safe run_command passes through as allow",
-  "env": { "AG_HOOK": "block-dangerous-commands" },
   "stdin": { "toolCall": { "name": "run_command", "args": { "CommandLine": "ls -la" } } },
   "expect_exit": 0,
   "expect_stdout_contains": ["\"decision\":\"allow\""]

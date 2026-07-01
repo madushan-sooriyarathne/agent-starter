@@ -13,7 +13,7 @@ INPUT=$(cat)
 EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "default"')
 
-MARKER_DIR="/tmp/claude-code-starter-hooks"
+MARKER_DIR="/tmp/agent-starter-hooks"
 MARKER="$MARKER_DIR/${SESSION_ID}.typecheck-dirty"
 
 if [ "$EVENT" = "PostToolUse" ]; then

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# claude-code-starter — install.sh
+# agent-starter — install.sh
 #
 # Terminal entry point. Scaffolds a tailored agent workspace into a project for
 # one or both supported hosts:
@@ -61,7 +61,7 @@ json_array() {
   printf '[%s]' "$out"
 }
 
-say "${BOLD}claude-code-starter${RESET} v$VERSION — agent project setup"
+say "${BOLD}agent-starter${RESET} v$VERSION — agent project setup"
 
 # ========================================================================
 # Step 0 — Target directory (install.sh only)
@@ -513,7 +513,7 @@ fi
 if [ ${#sel_hooks[@]} -gt 0 ]; then
   mkdir -p "$TARGET/.claude/hooks"
   for h in "${sel_hooks[@]}"; do
-    copy_managed "$SCRIPT_DIR/hooks/$h.sh" "$TARGET/.claude/hooks/$h.sh" "hook: $h"
+    copy_managed "$SCRIPT_DIR/hooks/claude/$h.sh" "$TARGET/.claude/hooks/$h.sh" "hook: $h"
     [ -f "$TARGET/.claude/hooks/$h.sh" ] && chmod +x "$TARGET/.claude/hooks/$h.sh"
   done
 fi
@@ -625,8 +625,8 @@ fi
 # Step 5 — Drift fingerprint
 # ========================================================================
 if contains "session-start" "${sel_hooks[@]:-}" && [ -x "$TARGET/.claude/hooks/session-start.sh" ]; then
-  CLAUDE_CODE_STARTER_FINGERPRINT=1 "$TARGET/.claude/hooks/session-start.sh" > "$TARGET/.claude/.claude-code-starter.json" \
-    && ok "wrote drift fingerprint .claude/.claude-code-starter.json"
+  AGENT_STARTER_FINGERPRINT=1 "$TARGET/.claude/hooks/session-start.sh" > "$TARGET/.claude/.agent-starter.json" \
+    && ok "wrote drift fingerprint .claude/.agent-starter.json"
 else
   skip "session-start hook not installed — no drift detection; re-run install.sh manually after stack changes"
 fi
@@ -640,7 +640,9 @@ fi  # end WANT_CLAUDE
 # `agy` does validate a native agents/<name>.md component, but whether it's
 # actually a delegable subagent at runtime (vs. Claude's Task-tool subagents)
 # is unconfirmed, so agents still ship as skills here (auto slash cmds) — the
-# safe, verified path. Our bash hooks run unchanged behind antigravity-adapter.sh.
+# safe, verified path. Safety hooks ship as native duplicates from
+# hooks/antigravity/ (own I/O contract, no translation shim) rather than
+# running the Claude-shaped hooks/claude/ scripts unchanged.
 AG_INSTALLED_SKILLS=(); AG_INSTALLED_RULES=(); AG_INSTALLED_HOOKS=()
 if [ "$WANT_AG" = "1" ]; then
   head "Antigravity → .agents/plugins/$AG_PLUGIN_NAME/"
@@ -652,7 +654,7 @@ if [ "$WANT_AG" = "1" ]; then
   cat > "$AG_ROOT/plugin.json" <<JSON
 {
   "name": "$AG_PLUGIN_NAME",
-  "description": "Project guardrails, rules, and reviewer skills scaffolded by claude-code-starter."
+  "description": "Project guardrails, rules, and reviewer skills scaffolded by agent-starter."
 }
 JSON
   ok "plugin.json"
@@ -693,19 +695,18 @@ JSON
     done
   fi
 
-  # Hooks → copy adapter + supported safety scripts, generate hooks.json.
+  # Hooks → copy the native antigravity/ scripts (duplicated logic, no
+  # translation shim), generate hooks.json.
   ag_hooks=()
   for h in "${sel_hooks[@]:-}"; do
     [ -n "$h" ] || continue
     case " $AG_SUPPORTED_HOOKS " in *" $h "*) ag_hooks+=("$h") ;; *) skip "hook: $h (not supported on Antigravity)" ;; esac
   done
   if [ ${#ag_hooks[@]} -gt 0 ]; then
-    cp "$SCRIPT_DIR/hooks/antigravity-adapter.sh" "$AG_ROOT/antigravity-adapter.sh" && chmod +x "$AG_ROOT/antigravity-adapter.sh"
     for h in "${ag_hooks[@]}"; do
-      cp "$SCRIPT_DIR/hooks/$h.sh" "$AG_ROOT/$h.sh" && chmod +x "$AG_ROOT/$h.sh" && AG_INSTALLED_HOOKS+=("$h")
+      cp "$SCRIPT_DIR/hooks/antigravity/$h.sh" "$AG_ROOT/$h.sh" && chmod +x "$AG_ROOT/$h.sh" && AG_INSTALLED_HOOKS+=("$h")
     done
-    # hooks.json: map each hook to a PreToolUse handler through the adapter.
-    ADAPTER="$AG_ROOT/antigravity-adapter.sh"
+    # hooks.json: map each hook straight to its native script — no adapter, no AG_HOOK indirection.
     WRITE_MATCHER="write_to_file|replace_file_content|multi_replace_file_content"
     {
       printf '{\n'
@@ -713,11 +714,11 @@ JSON
       for h in "${ag_hooks[@]}"; do
         case "$h" in block-dangerous-commands) m="run_command" ;; *) m="$WRITE_MATCHER" ;; esac
         [ $first -eq 1 ] && first=0 || printf ',\n'
-        printf '  "%s": {\n    "PreToolUse": [\n      {\n        "matcher": "%s",\n        "hooks": [\n          { "type": "command", "command": "AG_HOOK=%s bash \\"%s\\"", "timeout": 10 }\n        ]\n      }\n    ]\n  }' "$h" "$m" "$h" "$ADAPTER"
+        printf '  "%s": {\n    "PreToolUse": [\n      {\n        "matcher": "%s",\n        "hooks": [\n          { "type": "command", "command": "bash \\"%s\\"", "timeout": 10 }\n        ]\n      }\n    ]\n  }' "$h" "$m" "$AG_ROOT/$h.sh"
       done
       printf '\n}\n'
     } > "$AG_ROOT/hooks.json"
-    ok "hooks.json (${#ag_hooks[@]} guardrail$([ ${#ag_hooks[@]} -ne 1 ] && echo s) via adapter)"
+    ok "hooks.json (${#ag_hooks[@]} guardrail$([ ${#ag_hooks[@]} -ne 1 ] && echo s), native)"
   fi
 
   # Project context → AGENTS.md (Antigravity's CLAUDE.md equivalent).
