@@ -597,33 +597,9 @@ else
   skip "node/bun not found — hooks copied but settings.json not updated"
 fi
 
-# Skills (GitHub repos via the Vercel `skills` CLI: add <repo> --skill <name>)
-if [ ${#sel_skills[@]} -gt 0 ]; then
-  RUNNER=""
-  command -v bunx >/dev/null 2>&1 && RUNNER="bunx"
-  [ -z "$RUNNER" ] && command -v npx >/dev/null 2>&1 && RUNNER="npx"
-  if [ -z "$RUNNER" ]; then
-    skip "bunx/npx not found — skipping skill installation"
-    sel_skills=()
-  else
-    installed_skills=()
-    for s_name in "${sel_skills[@]}"; do
-      repo=""; skn="$s_name"; idx=0
-      for nm in "${skills_names[@]}"; do
-        if [ "$nm" = "$s_name" ]; then repo="${skills_repos[$idx]}"; skn="${skills_skillnames[$idx]}"; break; fi
-        idx=$((idx+1))
-      done
-      printf "  installing skill: %s --skill %s\n" "$repo" "$skn"
-      if ( cd "$TARGET" && "$RUNNER" skills add "$repo" --skill "$skn" -a claude-code -y </dev/null ); then
-        ok "skill: $skn"
-        installed_skills+=("$skn")
-      else
-        skip "skill failed: $skn (private repos need 'gh auth' — continuing)"
-      fi
-    done
-    sel_skills=(); [ ${#installed_skills[@]} -gt 0 ] && sel_skills=("${installed_skills[@]}")
-  fi
-fi
+# Skills catalog + third-party plugins install further down (Step 4c), after
+# both hosts' materialization — they're host-parameterized (claude-code and/or
+# antigravity-cli adapters) rather than Claude-only.
 
 # CLAUDE.md (+ budget check)
 CLAUDEMD_VERDICT="n/a"
@@ -646,63 +622,6 @@ if [ "$WANT_CLAUDEMD" = "1" ]; then
 fi
 
 # ========================================================================
-# Third-party plugins (caveman / ponytail / graphify). All non-fatal.
-# ========================================================================
-append_claudemd() { # append_claudemd "<markdown block>" — creates CLAUDE.md if absent
-  printf '\n%s\n' "$1" >> "$TARGET/CLAUDE.md"
-}
-if [ ${#sel_plugins[@]} -gt 0 ]; then
-  head "Third-party plugins"
-  PRUNNER=""
-  command -v bunx >/dev/null 2>&1 && PRUNNER="bunx"
-  [ -z "$PRUNNER" ] && command -v npx >/dev/null 2>&1 && PRUNNER="npx"
-
-  for p in "${sel_plugins[@]}"; do
-    case "$p" in
-      caveman)
-        if [ -z "$PRUNNER" ]; then skip "caveman: bunx/npx not found — skipped"; continue; fi
-        if ( cd "$TARGET" && "$PRUNNER" skills add JuliusBrussee/caveman -a claude-code -y </dev/null ); then
-          append_claudemd "# Communication style
-Use caveman mode for all responses: drop articles, drop filler words, fragments OK.
-Activate with \`/caveman\` at session start (or load via skill)."
-          ok "plugin: caveman"
-        else skip "caveman: install failed — continuing"; fi ;;
-      ponytail)
-        if command -v claude >/dev/null 2>&1; then
-          if claude plugin marketplace add DietrichGebert/ponytail </dev/null 2>/dev/null \
-             && claude plugin install ponytail@ponytail </dev/null 2>/dev/null; then
-            ok "plugin: ponytail (user-scoped; restart Claude Code)"
-          else skip "ponytail: claude plugin install failed — run manually:  claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail"; fi
-        else
-          skip "ponytail: 'claude' CLI not found — run in a Claude Code session:  /plugin marketplace add DietrichGebert/ponytail  then  /plugin install ponytail@ponytail"
-        fi
-        append_claudemd "# Build discipline
-Apply ponytail (YAGNI) discipline: stop at the first rung of the ladder that holds.
-No speculative abstractions, no boilerplate for later. Activate with \`/ponytail\` or
-load via the ponytail skill." ;;
-      graphify)
-        GPM=""
-        if command -v uv >/dev/null 2>&1; then GPM="uv tool install graphifyy"
-        elif command -v pipx >/dev/null 2>&1; then GPM="pipx install graphifyy"
-        elif command -v pip >/dev/null 2>&1; then GPM="pip install graphifyy"
-        fi
-        if [ -z "$GPM" ]; then
-          skip "graphify: no uv/pipx/pip on PATH — install one (e.g. curl -LsSf https://astral.sh/uv/install.sh | sh) then re-run; skipped"
-          continue
-        fi
-        say "  graphify: installing via ${GPM%% *}…"
-        if ( cd "$TARGET" && eval "$GPM" </dev/null ) && ( cd "$TARGET" && graphify install --project </dev/null ); then
-          append_claudemd "# Codebase graph
-Before searching raw files for architecture questions, read \`graphify-out/GRAPH_REPORT.md\`
-for god nodes and community structure. Use it to locate high-impact files before grepping."
-          ok "plugin: graphify — now run  /graphify .  in Claude Code to build the graph; commit graphify-out/"
-        else skip "graphify: install failed — continuing"; fi
-        case "$GPM" in pip\ *) say "  ${DIM}(pip: ensure graphify is on PATH — see uv/pipx if not)${RESET}";; esac ;;
-    esac
-  done
-fi
-
-# ========================================================================
 # Step 5 — Drift fingerprint
 # ========================================================================
 if contains "session-start" "${sel_hooks[@]:-}" && [ -x "$TARGET/.claude/hooks/session-start.sh" ]; then
@@ -718,18 +637,20 @@ fi  # end WANT_CLAUDE
 # Step 4b — Antigravity install (.agents/plugins/<name>/)
 # ========================================================================
 # Antigravity's plugin layout mirrors Claude's: markdown skills + rules + hooks.
-# Our agents have no static AG schema, so they ship as skills (auto slash cmds);
-# our bash hooks run unchanged behind antigravity-adapter.sh.
+# `agy` does validate a native agents/<name>.md component, but whether it's
+# actually a delegable subagent at runtime (vs. Claude's Task-tool subagents)
+# is unconfirmed, so agents still ship as skills here (auto slash cmds) — the
+# safe, verified path. Our bash hooks run unchanged behind antigravity-adapter.sh.
 AG_INSTALLED_SKILLS=(); AG_INSTALLED_RULES=(); AG_INSTALLED_HOOKS=()
 if [ "$WANT_AG" = "1" ]; then
   head "Antigravity → .agents/plugins/$AG_PLUGIN_NAME/"
   AG_ROOT="$TARGET/.agents/plugins/$AG_PLUGIN_NAME"
   mkdir -p "$AG_ROOT"
 
-  # plugin.json — required marker.
+  # plugin.json — required marker. Only "name" is required by `agy plugin
+  # validate`; no official $schema URL is published, so we don't ship one.
   cat > "$AG_ROOT/plugin.json" <<JSON
 {
-  "\$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "$AG_PLUGIN_NAME",
   "description": "Project guardrails, rules, and reviewer skills scaffolded by claude-code-starter."
 }
@@ -804,6 +725,116 @@ JSON
     if [ -e "$TARGET/AGENTS.md" ]; then skip "AGENTS.md (exists, kept)"
     else cp "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/AGENTS.md" && ok "AGENTS.md"; fi
   fi
+fi  # end WANT_AG
+
+# ========================================================================
+# Step 4c — Skills catalog + third-party plugins (host-aware)
+# ========================================================================
+# Both use the Vercel `skills` CLI, which supports a project-scoped
+# `antigravity-cli` adapter (writes .agents/skills/) alongside `claude-code`
+# (writes .claude/skills/) — so these run for whichever host(s) were selected,
+# not just Claude Code. CLAUDE.md/AGENTS.md already exist by this point.
+append_contextmd() { # append_contextmd <claude|ag|both> "<markdown block>"
+  case "$1" in claude|both) [ "$WANT_CLAUDE" = "1" ] && [ -f "$TARGET/CLAUDE.md" ] \
+    && printf '\n%s\n' "$2" >> "$TARGET/CLAUDE.md" ;; esac
+  case "$1" in ag|both) [ "$WANT_AG" = "1" ] && [ -f "$TARGET/AGENTS.md" ] \
+    && printf '\n%s\n' "$2" >> "$TARGET/AGENTS.md" ;; esac
+}
+SKILL_ADAPTERS=()
+[ "$WANT_CLAUDE" = "1" ] && SKILL_ADAPTERS+=("claude-code")
+[ "$WANT_AG" = "1" ] && SKILL_ADAPTERS+=("antigravity-cli")
+
+if [ ${#sel_skills[@]} -gt 0 ]; then
+  RUNNER=""
+  command -v bunx >/dev/null 2>&1 && RUNNER="bunx"
+  [ -z "$RUNNER" ] && command -v npx >/dev/null 2>&1 && RUNNER="npx"
+  if [ -z "$RUNNER" ]; then
+    skip "bunx/npx not found — skipping skill installation"
+    sel_skills=()
+  else
+    installed_skills=()
+    for s_name in "${sel_skills[@]}"; do
+      repo=""; skn="$s_name"; idx=0
+      for nm in "${skills_names[@]}"; do
+        if [ "$nm" = "$s_name" ]; then repo="${skills_repos[$idx]}"; skn="${skills_skillnames[$idx]}"; break; fi
+        idx=$((idx+1))
+      done
+      installed_any=0
+      for adapter in "${SKILL_ADAPTERS[@]}"; do
+        printf "  installing skill: %s --skill %s (%s)\n" "$repo" "$skn" "$adapter"
+        if ( cd "$TARGET" && "$RUNNER" skills add "$repo" --skill "$skn" -a "$adapter" -y </dev/null ); then
+          installed_any=1
+        fi
+      done
+      if [ "$installed_any" = "1" ]; then
+        ok "skill: $skn"
+        installed_skills+=("$skn")
+      else
+        skip "skill failed: $skn (private repos need 'gh auth' — continuing)"
+      fi
+    done
+    sel_skills=(); [ ${#installed_skills[@]} -gt 0 ] && sel_skills=("${installed_skills[@]}")
+  fi
+fi
+
+if [ ${#sel_plugins[@]} -gt 0 ]; then
+  head "Third-party plugins"
+  PRUNNER=""
+  command -v bunx >/dev/null 2>&1 && PRUNNER="bunx"
+  [ -z "$PRUNNER" ] && command -v npx >/dev/null 2>&1 && PRUNNER="npx"
+
+  for p in "${sel_plugins[@]}"; do
+    case "$p" in
+      caveman)
+        if [ -z "$PRUNNER" ]; then skip "caveman: bunx/npx not found — skipped"; continue; fi
+        installed_any=0
+        for adapter in "${SKILL_ADAPTERS[@]}"; do
+          ( cd "$TARGET" && "$PRUNNER" skills add JuliusBrussee/caveman -a "$adapter" -y </dev/null ) && installed_any=1
+        done
+        if [ "$installed_any" = "1" ]; then
+          append_contextmd both "# Communication style
+Use caveman mode for all responses: drop articles, drop filler words, fragments OK.
+Activate with \`/caveman\` at session start (or load via skill)."
+          ok "plugin: caveman"
+        else skip "caveman: install failed — continuing"; fi ;;
+      ponytail)
+        # Claude-only: no `agy`-native equivalent of `claude plugin marketplace add` is
+        # confirmed yet (see CLAUDE.md), so this only runs when WANT_CLAUDE.
+        if [ "$WANT_CLAUDE" = "1" ]; then
+          if command -v claude >/dev/null 2>&1; then
+            if claude plugin marketplace add DietrichGebert/ponytail </dev/null 2>/dev/null \
+               && claude plugin install ponytail@ponytail </dev/null 2>/dev/null; then
+              ok "plugin: ponytail (user-scoped; restart Claude Code)"
+            else skip "ponytail: claude plugin install failed — run manually:  claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail"; fi
+          else
+            skip "ponytail: 'claude' CLI not found — run in a Claude Code session:  /plugin marketplace add DietrichGebert/ponytail  then  /plugin install ponytail@ponytail"
+          fi
+          append_contextmd claude "# Build discipline
+Apply ponytail (YAGNI) discipline: stop at the first rung of the ladder that holds.
+No speculative abstractions, no boilerplate for later. Activate with \`/ponytail\` or
+load via the ponytail skill."
+        fi
+        [ "$WANT_AG" = "1" ] && skip "ponytail: Claude Code only — no Antigravity equivalent, skipped" ;;
+      graphify)
+        GPM=""
+        if command -v uv >/dev/null 2>&1; then GPM="uv tool install graphifyy"
+        elif command -v pipx >/dev/null 2>&1; then GPM="pipx install graphifyy"
+        elif command -v pip >/dev/null 2>&1; then GPM="pip install graphifyy"
+        fi
+        if [ -z "$GPM" ]; then
+          skip "graphify: no uv/pipx/pip on PATH — install one (e.g. curl -LsSf https://astral.sh/uv/install.sh | sh) then re-run; skipped"
+          continue
+        fi
+        say "  graphify: installing via ${GPM%% *}…"
+        if ( cd "$TARGET" && eval "$GPM" </dev/null ) && ( cd "$TARGET" && graphify install --project </dev/null ); then
+          append_contextmd both "# Codebase graph
+Before searching raw files for architecture questions, read \`graphify-out/GRAPH_REPORT.md\`
+for god nodes and community structure. Use it to locate high-impact files before grepping."
+          ok "plugin: graphify — now run  /graphify .  in Claude Code to build the graph; commit graphify-out/"
+        else skip "graphify: install failed — continuing"; fi
+        case "$GPM" in pip\ *) say "  ${DIM}(pip: ensure graphify is on PATH — see uv/pipx if not)${RESET}";; esac ;;
+    esac
+  done
 fi
 
 # ========================================================================
@@ -848,9 +879,11 @@ if [ "$WANT_CLAUDE" = "1" ]; then
 fi
 if [ "$WANT_AG" = "1" ]; then
   say "  ${BOLD}Antigravity (.agents/plugins/$AG_PLUGIN_NAME/)${RESET}"
-  say "    Skills:            ${AG_INSTALLED_SKILLS[*]:-(none)}"
+  say "    Agents (as skills): ${AG_INSTALLED_SKILLS[*]:-(none)}"
   say "    Rules:             ${AG_INSTALLED_RULES[*]:-(none)}"
   say "    Hooks:             ${AG_INSTALLED_HOOKS[*]:-(none)} ${DIM}(safety guardrails only)${RESET}"
+  say "    Plugins:           ${sel_plugins[*]:-(none)}"
+  say "    Skills (catalog):  ${sel_skills[*]:-(none)} ${DIM}(.agents/skills/)${RESET}"
 fi
 say "  Always-loaded est.:  ~${TOKEN_EST} tokens (CLAUDE.md/AGENTS.md + path-less rules)"
 [ "$TOKEN_EST" -gt 1000 ] 2>/dev/null && say "  ${YELLOW}Consider trimming — over the ~1000 token always-loaded budget.${RESET}"

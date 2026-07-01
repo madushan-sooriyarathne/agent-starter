@@ -181,6 +181,26 @@ claude plugin install safety-hooks@claude-code-starter
 claude plugin install quality-hooks@claude-code-starter
 ```
 
+### Antigravity (`agy`)
+
+Every plugin here is also installable through the `agy` CLI — no separate build
+or manifest needed, `agy` reads the same `plugins/` layout directly:
+
+```bash
+git clone https://github.com/madushan-sooriyarathne/claude-code-starter
+agy plugin install ./claude-code-starter                    # installs all 22 plugins
+agy plugin install ./claude-code-starter/plugins/setup-agents # or just one
+```
+
+`agy plugin install` on a directory containing a `plugins/` folder auto-detects
+it as a bulk marketplace and installs every plugin found inside. There's no
+`agy`-native equivalent of `claude plugin marketplace add <owner>/<repo>` yet
+(`agy plugin link` requires a marketplace that's already registered, and no
+`agy plugin marketplace add`-style command exists) — cloning locally and
+pointing `agy plugin install` at the checkout is the supported path today.
+Run `agy plugin list` afterward, then reload Antigravity or start a new
+session so `/setup-agents` (and the other skills) are picked up.
+
 ## Layout
 
 ```
@@ -191,6 +211,8 @@ claude-code-starter/
 ├── hooks/                            # 10 hook scripts + tests/
 ├── skills/                           # 11 bundled skill dirs
 ├── plugins/                          # 22 plugin dirs (plugin.json + symlinks)
+├── scripts/
+│   └── materialize-agy-skills.sh     # regenerates plugins/*/skills/ real copies for agy
 ├── templates/
 │   ├── CLAUDE.template.md            # shipped to user projects by /setup-agents
 │   └── settings.json                 # hook-wired settings template
@@ -198,13 +220,21 @@ claude-code-starter/
 └── README.md
 ```
 
-`plugins/<name>/` contains only a `.claude-plugin/plugin.json` and relative symlinks into the top-level dirs — no copies.
+`plugins/<name>/` contains a `.claude-plugin/plugin.json` and relative symlinks
+into the top-level `agents/`/`rules/`/`hooks/` dirs — no copies. The one
+exception is `plugins/<name>/skills/<name>/`: `agy`'s plugin scanner follows
+symlinked *files* but not symlinked *directories*, so those are real,
+generated copies of `skills/<name>/` instead of symlinks (Claude Code doesn't
+need this — it dereferences marketplace symlinks fine either way).
 
 ## Development
 
 ```bash
-bash hooks/tests/run-all.sh          # run all hook fixture tests (requires jq)
-claude plugin validate . --strict    # validate marketplace + plugin manifests
+bash hooks/tests/run-all.sh              # run all hook fixture tests (requires jq)
+claude plugin validate . --strict        # validate marketplace + plugin manifests
+agy plugin validate plugins/<name>       # validate a single plugin against agy's schema
+./scripts/materialize-agy-skills.sh      # after editing anything under skills/<name>/, regenerate plugins/*/skills/ copies
+./scripts/materialize-agy-skills.sh --check  # verify copies aren't stale (no writes)
 ```
 
 Every new or modified hook ships with fixtures under `hooks/tests/fixtures/<hook-name>/`. After changing any manifest, skill, or agent frontmatter, run `claude plugin validate . --strict`.
