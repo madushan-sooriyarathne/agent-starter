@@ -18,9 +18,13 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VERSION="0.4.0"
 
-# Hooks whose Claude logic ports to Antigravity. AG PostToolUse carries no tool
-# args, so only the PreToolUse safety guardrails are eligible there.
-AG_SUPPORTED_HOOKS="block-dangerous-commands scan-secrets protect-files warn-large-files"
+# Hooks with a native Antigravity implementation (hooks/antigravity/<name>.sh).
+# The 4 PreToolUse safety guardrails map 1:1. The other 6 needed a redesign
+# since AG's PostToolUse carries no tool args: typecheck-on-stop/lint-on-stop/
+# format-on-save/auto-test/notify run on Stop (git status/diff replaces the
+# PostToolUse marker), session-start runs on PreInvocation (invocationNum==0
+# substitutes for the SessionStart event AG doesn't have).
+AG_SUPPORTED_HOOKS="block-dangerous-commands scan-secrets protect-files warn-large-files typecheck-on-stop lint-on-stop format-on-save auto-test notify session-start"
 AG_PLUGIN_NAME="setup-agents"
 
 # ---- pretty output -------------------------------------------------------
@@ -707,24 +711,63 @@ JSON
       cp "$SCRIPT_DIR/hooks/antigravity/$h.sh" "$AG_ROOT/$h.sh" && chmod +x "$AG_ROOT/$h.sh" && AG_INSTALLED_HOOKS+=("$h")
     done
     # hooks.json: map each hook straight to its native script — no adapter, no AG_HOOK indirection.
+    # PreToolUse/PostToolUse use the matcher+hooks[] wrapper; PreInvocation/
+    # PostInvocation/Stop are a flat handler array with no matcher.
     WRITE_MATCHER="write_to_file|replace_file_content|multi_replace_file_content"
+    ag_hook_event() {
+      case "$1" in
+        block-dangerous-commands|scan-secrets|protect-files|warn-large-files) echo "PreToolUse" ;;
+        session-start) echo "PreInvocation" ;;
+        *) echo "Stop" ;;
+      esac
+    }
+    ag_hook_matcher() {
+      case "$1" in
+        block-dangerous-commands) echo "run_command" ;;
+        scan-secrets|protect-files|warn-large-files) echo "$WRITE_MATCHER" ;;
+        *) echo "" ;;
+      esac
+    }
+    ag_hook_timeout() {
+      case "$1" in
+        auto-test) echo 120 ;;
+        typecheck-on-stop|lint-on-stop) echo 60 ;;
+        format-on-save) echo 30 ;;
+        *) echo 10 ;;
+      esac
+    }
     {
       printf '{\n'
       first=1
       for h in "${ag_hooks[@]}"; do
-        case "$h" in block-dangerous-commands) m="run_command" ;; *) m="$WRITE_MATCHER" ;; esac
+        event=$(ag_hook_event "$h")
+        t=$(ag_hook_timeout "$h")
         [ $first -eq 1 ] && first=0 || printf ',\n'
-        printf '  "%s": {\n    "PreToolUse": [\n      {\n        "matcher": "%s",\n        "hooks": [\n          { "type": "command", "command": "bash \\"%s\\"", "timeout": 10 }\n        ]\n      }\n    ]\n  }' "$h" "$m" "$AG_ROOT/$h.sh"
+        if [ "$event" = "PreToolUse" ]; then
+          m=$(ag_hook_matcher "$h")
+          printf '  "%s": {\n    "%s": [\n      {\n        "matcher": "%s",\n        "hooks": [\n          { "type": "command", "command": "bash \\"%s\\"", "timeout": %s }\n        ]\n      }\n    ]\n  }' "$h" "$event" "$m" "$AG_ROOT/$h.sh" "$t"
+        else
+          printf '  "%s": {\n    "%s": [\n      { "type": "command", "command": "bash \\"%s\\"", "timeout": %s }\n    ]\n  }' "$h" "$event" "$AG_ROOT/$h.sh" "$t"
+        fi
       done
       printf '\n}\n'
     } > "$AG_ROOT/hooks.json"
-    ok "hooks.json (${#ag_hooks[@]} guardrail$([ ${#ag_hooks[@]} -ne 1 ] && echo s), native)"
+    ok "hooks.json (${#ag_hooks[@]} hook$([ ${#ag_hooks[@]} -ne 1 ] && echo s), native)"
   fi
 
   # Project context → AGENTS.md (Antigravity's CLAUDE.md equivalent).
   if [ "$WANT_CLAUDEMD" = "1" ] && [ -f "$SCRIPT_DIR/templates/CLAUDE.template.md" ]; then
     if [ -e "$TARGET/AGENTS.md" ]; then skip "AGENTS.md (exists, kept)"
     else cp "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/AGENTS.md" && ok "AGENTS.md"; fi
+  fi
+
+  # Drift fingerprint (mirrors Claude Step 5) — session-start.sh reads this
+  # back on its next invocationNum==0 PreInvocation to detect stack drift.
+  if contains "session-start" "${sel_hooks[@]:-}" && [ -x "$AG_ROOT/session-start.sh" ]; then
+    AGENT_STARTER_FINGERPRINT=1 "$AG_ROOT/session-start.sh" > "$AG_ROOT/.agent-starter.json" \
+      && ok "wrote drift fingerprint $AG_PLUGIN_NAME/.agent-starter.json"
+  else
+    skip "session-start hook not installed — no drift detection; re-run install.sh manually after stack changes"
   fi
 fi  # end WANT_AG
 

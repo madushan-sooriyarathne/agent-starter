@@ -381,11 +381,16 @@ layout mirrors Claude's, with three differences that matter:
   `.agents/plugins/setup-agents/skills/<name>/SKILL.md` with frontmatter reduced
   to `name` + `description` and the agent's body carried verbatim. It becomes a
   `/<name>` slash command.
-- **Only the four PreToolUse safety hooks port** (`block-dangerous-commands`,
-  `scan-secrets`, `protect-files`, `warn-large-files`). Antigravity's PostToolUse
-  carries no tool arguments, so the quality hooks (format-on-save, auto-test,
-  typecheck/lint-on-stop, session-start, notify) **do not** apply — skip them
-  with a note.
+- **All 10 hooks port, but 6 needed a redesign, not just a contract swap.**
+  The four PreToolUse safety hooks (`block-dangerous-commands`, `scan-secrets`,
+  `protect-files`, `warn-large-files`) map 1:1 onto Antigravity's `PreToolUse`.
+  The rest can't, because Antigravity's `PostToolUse` carries no tool
+  arguments at all (no file path, no tool name) — so `format-on-save`,
+  `auto-test`, `typecheck-on-stop`, `lint-on-stop`, and `notify` instead run on
+  `Stop` (fires once the execution loop is about to fully terminate), reading
+  `git status`/`git diff` against `workspacePaths[0]` in place of a per-edit
+  marker; `session-start` runs on `PreInvocation` (fires before every model
+  call), gated to `invocationNum==0` to approximate "session start".
 - **Project context goes in `AGENTS.md`** at the project root, not `CLAUDE.md`.
 
 Materialize:
@@ -395,20 +400,28 @@ Materialize:
 - **Rules** → `rules/<name>.md`, identical markdown; apply the same `paths:`
   rewrite as the Claude path.
 - **Agents** → `skills/<name>/SKILL.md` per the conversion above.
-- **Hooks** → copy each supported hook's native script from `hooks/antigravity/<name>.sh`
-  (not the `hooks/claude/` one — Antigravity gets its own duplicated-logic
-  implementation, no translation shim) into the bundle root, `chmod +x`, then
-  write `hooks.json` mapping each hook straight to a `PreToolUse` handler:
-  `"command": "bash \"<abs>/.agents/plugins/setup-agents/<name>.sh\""`,
-  matcher `run_command` for `block-dangerous-commands`, else
-  `write_to_file|replace_file_content|multi_replace_file_content`.
+- **Hooks** → copy each supported hook's native script from
+  `hooks/antigravity/<name>.sh` (not the `hooks/claude/` one — Antigravity gets
+  its own duplicated-logic implementation, no translation shim) into the
+  bundle root, `chmod +x`, then write `hooks.json`. Two different shapes
+  depending on the hook's event:
+  - `PreToolUse` (the 4 safety hooks): matcher+hooks wrapper —
+    `{"<name>": {"PreToolUse": [{"matcher": "...", "hooks": [{"type":"command","command":"bash \"<abs>/.agents/plugins/setup-agents/<name>.sh\""}]}]}}`.
+    Matcher `run_command` for `block-dangerous-commands`, else
+    `write_to_file|replace_file_content|multi_replace_file_content`.
+  - `PreInvocation`/`Stop` (the other 6): a flat handler array, no matcher —
+    `{"<name>": {"Stop": [{"type":"command","command":"bash \"<abs>/.agents/plugins/setup-agents/<name>.sh\""}]}}`
+    (`session-start` uses `"PreInvocation"` instead of `"Stop"`).
 - **AGENTS.md** → copy the `CLAUDE.md` template to `./AGENTS.md` (skip if it
   already exists).
+- **Drift fingerprint** → if `session-start` was installed, run
+  `AGENT_STARTER_FINGERPRINT=1 .agents/plugins/setup-agents/session-start.sh > .agents/plugins/setup-agents/.agent-starter.json`
+  (mirrors the Claude Step 5 fingerprint write; `session-start.sh` reads this
+  path back by default on its next `invocationNum==0` `PreInvocation`).
 
 The terminal `install.sh` implements exactly this; prefer matching its output.
-Verify `hooks.json` is valid JSON, then report per Step 6 (drop the drift
-fingerprint — no `session-start` on Antigravity). Tell the user to reload
-Antigravity so the plugin is discovered.
+Verify `hooks.json` is valid JSON, then report per Step 6. Tell the user to
+reload Antigravity so the plugin is discovered.
 
 ## Guardrails
 

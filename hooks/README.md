@@ -120,11 +120,23 @@ Sends a native OS notification when Claude needs your attention. Supports macOS 
 
 ## Antigravity-native hooks
 
-Only the four PreToolUse safety guards port — Antigravity's PostToolUse carries no tool args, so `format-on-save`/`auto-test`/`typecheck-on-stop`/`lint-on-stop`/`session-start`/`notify` stay Claude-only. Each native script reads Antigravity's `{"toolCall":{"name","args":{...}}}` stdin directly and writes `{"decision":"allow|deny|ask","reason":"..."}` to stdout, always exiting 0 (the gate lives in stdout, not the exit code) — the same detection logic as its `hooks/claude/` counterpart, reimplemented against Antigravity's contract instead of translated into it. Installed into `.agents/plugins/setup-agents/` by `install.sh` when the Antigravity host is selected.
+All 10 Claude hooks have an Antigravity counterpart. Installed into `.agents/plugins/setup-agents/` by `install.sh` when the Antigravity host is selected, always exiting 0 (the gate/result lives in stdout, not the exit code) — same detection logic as the `hooks/claude/` counterpart, reimplemented against Antigravity's contract rather than translated into it.
+
+**PreToolUse (direct port)** — reads `{"toolCall":{"name","args":{...}}}` stdin, writes `{"decision":"allow|deny|ask","reason":"..."}`:
 
 - `protect-files.sh`, `warn-large-files.sh` — file path via `.toolCall.args.TargetFile`. No jq → deny (fail closed, matches the Claude-side script).
 - `block-dangerous-commands.sh` — command via `.toolCall.args.CommandLine`, matcher `run_command`. No jq → deny.
 - `scan-secrets.sh` — content field depends on `.toolCall.name`: `write_to_file`→`CodeContent`, `replace_file_content`→`ReplacementContent`, `multi_replace_file_content`→joined `ReplacementChunks[].ReplacementContent`. No jq → allow (fail open, matches the Claude-side script — it's a warn-and-override hook, not file protection).
+
+**Stop / PreInvocation (redesigned)** — Antigravity's `PostToolUse` carries no tool args at all (no file path, no tool name), so nothing that needs "which file was just edited" can trigger off it. These 6 move to `Stop` (fires once the execution loop is about to fully terminate) or `PreInvocation` (fires before every model call), using `git status`/`git diff` against `workspacePaths[0]` instead of a per-edit marker:
+
+- `typecheck-on-stop.sh`, `lint-on-stop.sh` — **Stop**. Live `git status --porcelain` replaces the Claude-side PostToolUse dirty-marker. Same typecheck/lint cascade. On failure, requests `{"decision":"continue","reason":"..."}` — `reason` only reaches the agent when `decision` is `"continue"` — guarded by a `conversationId`-keyed `/tmp` marker so it nags at most once per conversation per failing state (Antigravity's `Stop` schema has no `stop_hook_active`-equivalent field; this loop-guard is inferred, not documented — **needs live verification against a real Antigravity instance**).
+- `format-on-save.sh` — **Stop**. Formats every file `git diff --name-only HEAD` (plus untracked new files) shows as changed, batched once per turn instead of per-edit. Never requests `"continue"`.
+- `auto-test.sh` — **Stop**. Same git-diff-driven batching, runs the matching test file per changed file. Never requests `"continue"` (matches Claude-side: reports failures, never blocks). Less surgical than the Claude version — tests every dirty file at Stop, including pre-existing uncommitted changes the agent never touched.
+- `notify.sh` — **Stop**. Antigravity has no `Notification` event; fires an OS notification when `fullyIdle:true` (agent fully finished, nothing running in the background). Loses the permission-prompt case Claude's `Notification` hook also covers — not needed here, since Antigravity's client already surfaces that natively via `ask`/`force_ask` on `PreToolUse`.
+- `session-start.sh` — **PreInvocation**. Antigravity has no `SessionStart` event; gated to only act when `invocationNum==0` (first model call of the conversation) since `PreInvocation` otherwise fires every turn. Emits `{"injectSteps":[{"ephemeralMessage":"..."}]}` instead of Claude's direct context injection. Fingerprint mode (`AGENT_STARTER_FINGERPRINT=1 session-start.sh`) is unchanged — invoked directly by `/setup-agents`/`install.sh`, not through the hook event system.
+
+**Open risk**: if multiple independent Stop hooks (e.g. `typecheck-on-stop.sh` and `lint-on-stop.sh`) each request `"continue"` in the same cycle, Antigravity's docs don't say how the results combine. Not resolvable without testing against a real Antigravity instance.
 
 ## Adding your own
 

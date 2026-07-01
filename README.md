@@ -7,9 +7,9 @@ A Claude Code plugin marketplace: 22 plugins (agents, skills, hooks, rules) that
 | Host        | Layout                                                         | Components ported                           |
 | ----------- | -------------------------------------------------------------- | ------------------------------------------- |
 | Claude Code | `.claude/{agents,rules,hooks}` + `settings.json` + `CLAUDE.md` | all                                         |
-| Antigravity | `.agents/plugins/setup-agents/` + `AGENTS.md`                  | rules, agents→skills, 4 native safety hooks |
+| Antigravity | `.agents/plugins/setup-agents/` + `AGENTS.md`                  | rules, agents→skills, all 10 hooks (native) |
 
-On Antigravity, agents ship as **skills** (auto `/<name>` slash commands — Antigravity subagents have no static file format), and only the four PreToolUse safety hooks port (its PostToolUse carries no tool args). Each ships as its own native implementation under `hooks/antigravity/` — duplicated logic speaking Antigravity's `{toolCall}`→`{decision,reason}` contract directly, not a shim translating the Claude-shaped `hooks/claude/` scripts.
+On Antigravity, agents ship as **skills** (auto `/<name>` slash commands — Antigravity subagents have no static file format). All 10 hooks port, each as its own native implementation under `hooks/antigravity/` — duplicated logic, not a shim translating the Claude-shaped `hooks/claude/` scripts. The 4 safety hooks map 1:1 onto Antigravity's `PreToolUse` (`{toolCall}`→`{decision,reason}`); the other 6 needed a redesign since Antigravity's `PostToolUse` carries no tool args at all — they run on `Stop`/`PreInvocation` instead, using live `git status`/`git diff` in place of a per-edit marker. See `hooks/README.md` for the per-hook breakdown and open risks.
 
 ## Entry points
 
@@ -25,7 +25,7 @@ Invoke the slash command in any session. It detects the host, scans the project,
 
 Same flow as `/setup-agents` but driven from the shell. Prompts for the target host (Claude Code / Antigravity / both), detects the target directory, prints numbered checklists per category, accepts space-separated numbers / `a` / `n` / Enter for defaults. Requires bash + `bunx`.
 
-On Claude Code, both entry points write `.claude/.agent-starter.json` — a drift fingerprint of the detected stack used by the `session-start` hook. (Antigravity has no `session-start` event, so no fingerprint is written there.)
+Both entry points write a drift fingerprint of the detected stack used by the `session-start` hook: `.claude/.agent-starter.json` on Claude Code, `.agents/plugins/setup-agents/.agent-starter.json` on Antigravity (read back on the first `PreInvocation` of each new conversation, since Antigravity has no direct `SessionStart` event).
 
 ## What gets installed
 
