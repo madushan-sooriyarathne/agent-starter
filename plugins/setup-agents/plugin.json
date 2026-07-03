@@ -1,6 +1,6 @@
 {
 	"name": "setup-agents",
-	"version": "2.6.0",
+	"version": "2.7.0",
 	"description": "Set up agent-starter in any project for Claude Code (.claude/) or Antigravity (.agents/). Deep-scans the codebase, interviews you, then installs and customizes only the config the project actually needs.",
 	"author": {
 		"name": "Madushan Sooriyarathne",

@@ -13,9 +13,17 @@ On Antigravity, agents ship as **skills** (auto `/<name>` slash commands — Ant
 
 ## Entry points
 
-### `/setup-agents` (inside Claude Code or Antigravity)
+### `/setup-agents`, `/setup-claude`, `/setup-agy` (inside Claude Code or Antigravity)
 
-Invoke the slash command in any session. It detects the host, scans the project, recommends the right subset, and installs only what the evidence justifies. On an existing config it runs as a gap analysis.
+Three slash commands, host-independent — each hard-targets a host set regardless of where it runs, scans the project, recommends the right subset, and installs only what the evidence justifies. On an existing config each runs as a gap analysis.
+
+| Command | Targets | Writes |
+|---|---|---|
+| `/setup-agents` | Claude Code **+** Antigravity | `.claude/` + `CLAUDE.md` **and** `.agents/` + `AGENTS.md` |
+| `/setup-claude` | Claude Code only | `.claude/` + `CLAUDE.md` (even from Antigravity) |
+| `/setup-agy`    | Antigravity only | `.agents/` + `AGENTS.md` (even from Claude Code) |
+
+The scan/confirm/plan logic is shared (`skills/setup-agents/references/scan-and-plan.md`); the three skills differ only in which host tree(s) they materialize. For the both-host mode, the two trees are written independently as real files — no symlinks between them.
 
 ### `./install.sh` (terminal)
 
@@ -23,7 +31,7 @@ Invoke the slash command in any session. It detects the host, scans the project,
 ./install.sh
 ```
 
-Same flow as `/setup-agents` but driven from the shell. Prompts for the target host (Claude Code / Antigravity / both), detects the target directory, prints numbered checklists per category, accepts space-separated numbers / `a` / `n` / Enter for defaults. Requires bash + `bunx`.
+Same flow as the `/setup-*` skills but driven from the shell. Prompts for the target host (Claude Code / Antigravity / both — the terminal equivalent of the three commands), detects the target directory, prints numbered checklists per category, accepts space-separated numbers / `a` / `n` / Enter for defaults. Requires bash + `bunx`.
 
 Both entry points write a drift fingerprint of the detected stack used by the `session-start` hook: `.claude/.agent-starter.json` on Claude Code, `.agents/.agent-starter.json` on Antigravity (read back on the first `PreInvocation` of each new conversation, since Antigravity has no direct `SessionStart` event).
 
