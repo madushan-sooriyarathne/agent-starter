@@ -15,11 +15,12 @@ All three are **pre-marked by default** (user must explicitly deselect).
 | Field         | Value |
 |---------------|-------|
 | Repo          | `https://github.com/JuliusBrussee/caveman` |
-| Install cmd   | `bunx skills add JuliusBrussee/caveman -a claude-code -y` |
-| Scope         | Project (skills CLI writes to `.claude/skills/`) |
+| Install cmd   | `bunx skills add JuliusBrussee/caveman -a <adapter> -y` (`<adapter>` = `claude-code` under Claude Code, `antigravity-cli` under Antigravity) |
+| Scope         | Project (skills CLI writes to `.claude/skills/` or `.agents/skills/` per adapter) |
 | Default       | ✅ pre-selected |
 
-**Post-install — append to `CLAUDE.md`:**
+**Post-install — append to the host context file (`CLAUDE.md`, or `AGENTS.md` under
+Antigravity):**
 
 ```markdown
 # Communication style

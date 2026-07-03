@@ -67,7 +67,7 @@ if ! git -C "$ROOT" diff-index --quiet HEAD -- 2>/dev/null; then
 fi
 
 # Config drift nudge (one short line, only when manifests changed since setup).
-META="${AGENT_STARTER_META:-$ROOT/.agents/plugins/setup-agents/.agent-starter.json}"
+META="${AGENT_STARTER_META:-$ROOT/.agents/.agent-starter.json}"
 if [ -f "$META" ]; then
   SAVED=$(grep -o '"manifest_hash"[: ]*"[^"]*"' "$META" 2>/dev/null | grep -o '"[^"]*"$' | tr -d '"')
   if [ -n "$SAVED" ] && [ "$(manifest_hash "$ROOT")" != "$SAVED" ]; then

@@ -120,7 +120,7 @@ Sends a native OS notification when Claude needs your attention. Supports macOS 
 
 ## Antigravity-native hooks
 
-All 10 Claude hooks have an Antigravity counterpart. Installed into `.agents/plugins/setup-agents/` by `install.sh` when the Antigravity host is selected, always exiting 0 (the gate/result lives in stdout, not the exit code) — same detection logic as the `hooks/claude/` counterpart, reimplemented against Antigravity's contract rather than translated into it.
+All 10 Claude hooks have an Antigravity counterpart. Installed into `.agents/hooks/` (wired by `.agents/hooks.json`) by `install.sh` when the Antigravity host is selected, always exiting 0 (the gate/result lives in stdout, not the exit code) — same detection logic as the `hooks/claude/` counterpart, reimplemented against Antigravity's contract rather than translated into it.
 
 **PreToolUse (direct port)** — reads `{"toolCall":{"name","args":{...}}}` stdin, writes `{"decision":"allow|deny|ask","reason":"..."}`:
 

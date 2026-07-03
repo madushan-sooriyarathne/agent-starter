@@ -9,11 +9,11 @@ description: >
   anything else evidence supports), then interactively installs review agents,
   rules, deterministic hooks, recommended skills, and a CLAUDE.md/AGENTS.md
   template — targeting whichever host it runs in (Claude Code → .claude/,
-  Antigravity → .agents/plugins/setup-agents/) — with deeper built-in signals for
+  Antigravity → .agents/) — with deeper built-in signals for
   a Next.js / Turborepo / Hono+Bun / Drizzle / BetterAuth / Sanity / Biome stack
   where present.
 metadata:
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # /setup-agents
@@ -35,9 +35,10 @@ detect it:
   `settings.json` + `CLAUDE.md`. This is the default; **Steps 1–6 below describe
   this path.**
 - **Antigravity** — those env vars are absent and you are running inside
-  Antigravity. Target `.agents/plugins/setup-agents/`. Run the **same** Steps 1–3
-  (scan, confirm, plan); then materialize per the **"Antigravity install"**
-  section near the end instead of Steps 4–5.
+  Antigravity. Target a flat `.agents/` tree (`skills/`, `rules/`, `hooks/` +
+  `hooks.json`, `mcp_config.json`) plus `AGENTS.md` at the project root. Run the
+  **same** Steps 1–3 (scan, confirm, plan); then materialize per the
+  **"Antigravity install"** section near the end instead of Steps 4–5.
 
 The scan and selection logic is host-agnostic. Only how the plan is written to
 disk differs.
@@ -287,9 +288,11 @@ Apply the approved plan exactly:
   generic allow-list wholesale.
 - **Third-party plugins:** read `references/third-party-plugins-catalog.md` for exact
   install sequences. Apply in this order for each selected plugin:
-  - **Caveman:** run `bunx skills add JuliusBrussee/caveman -a claude-code -y` from the
-    project directory (project-scoped). Then append the caveman CLAUDE.md snippet from
-    the catalog.
+  - **Caveman:** run `bunx skills add JuliusBrussee/caveman -a <adapter> -y` from the
+    project directory (project-scoped), where `<adapter>` is `claude-code` under Claude
+    Code or `antigravity-cli` under Antigravity (the host detected in Step 0) — the
+    adapter decides whether the skill lands in `.claude/skills/` or `.agents/skills/`.
+    Then append the caveman context snippet from the catalog.
   - **Ponytail:** Ponytail uses the Claude Code native plugin system and installs to
     `~/.claude/` (user-scoped, not project-scoped). Print the two in-session commands
     for the user to run manually:
@@ -312,10 +315,13 @@ Apply the approved plan exactly:
   - **Bundled skills:** no action required — they are already available via the plugin.
     Log each selected bundled skill as "available (bundled)" in the Step 6 summary.
   - **External skills:** for each selected external skill, run
-    `bunx skills add <repo-url> --skill <skill-name> -a claude-code -y` from the
-    project directory (repo URL and skill name from the catalog). Private repos (e.g.
-    `madushan/next-pro-seo`) need `gh auth` — treat an auth failure as non-fatal and
-    continue. There is no marketplace/plugin install step.
+    `bunx skills add <repo-url> --skill <skill-name> -a <adapter> -y` from the
+    project directory (repo URL and skill name from the catalog). `<adapter>` is the
+    host detected in Step 0: `claude-code` (→ `.claude/skills/`) under Claude Code,
+    `antigravity-cli` (→ `.agents/skills/`) under Antigravity. Never hard-code
+    `claude-code` — under agy that would leak skills into `.claude/skills/`. Private
+    repos (e.g. `madushan/next-pro-seo`) need `gh auth` — treat an auth failure as
+    non-fatal and continue. There is no marketplace/plugin install step.
 - **CLAUDE.md:** if selected, copy `${CLAUDE_PLUGIN_ROOT}/template/CLAUDE.md`
   → `./CLAUDE.md`. Then run the budget check: `grep -cv '^[[:space:]]*$' CLAUDE.md`.
   - Under 25 non-blank lines: pass, no message needed.
@@ -371,16 +377,29 @@ Do not write any other install-record file. Gap-analysis mode (Step 1) reads
 
 Reached only when Step 0 detected Antigravity. Run Steps 1–3 unchanged (same
 scan, same catalogs, same plan table), then materialize the approved plan into
-`.agents/plugins/setup-agents/` instead of `.claude/`. Antigravity's plugin
-layout mirrors Claude's, with three differences that matter:
+a flat `.agents/` tree (plus `AGENTS.md` at the project root) instead of
+`.claude/`. Antigravity discovers this tree natively — no plugin bundle, no
+`plugin.json`. The target layout:
 
-- **Agents ship as skills, not as `agy`'s native `agents/<name>.md`.** `agy
-  plugin validate` does recognize an `agents/` component, but whether it
-  behaves as a real delegable subagent at runtime (vs. Claude's Task-tool
-  subagents) is unconfirmed — so use the verified path: write
-  `.agents/plugins/setup-agents/skills/<name>/SKILL.md` with frontmatter reduced
-  to `name` + `description` and the agent's body carried verbatim. It becomes a
-  `/<name>` slash command.
+```
+AGENTS.md                  project root — the CLAUDE.md equivalent
+.agents/
+  skills/<name>/SKILL.md   bundled + agent-derived + external skills, one home
+  rules/<name>.md          rules
+  hooks/<name>.sh          all hook scripts
+  hooks.json               wires the scripts in .agents/hooks/
+  mcp_config.json          MCP server config — only if MCPs are selected
+  .agent-starter.json      drift fingerprint (session-start hook)
+```
+
+Three differences from the Claude path that matter:
+
+- **Agents ship as skills, not as `agy`'s native `agents/<name>.md`.** Whether an
+  `agents/` component behaves as a real delegable subagent at runtime (vs.
+  Claude's Task-tool subagents) is unconfirmed — so use the verified path: write
+  `.agents/skills/<name>/SKILL.md` with frontmatter reduced to `name` +
+  `description` and the agent's body carried verbatim. It becomes a `/<name>`
+  slash command and lives alongside bundled + external skills in `.agents/skills/`.
 - **All 10 hooks port, but 6 needed a redesign, not just a contract swap.**
   The four PreToolUse safety hooks (`block-dangerous-commands`, `scan-secrets`,
   `protect-files`, `warn-large-files`) map 1:1 onto Antigravity's `PreToolUse`.
@@ -395,38 +414,42 @@ layout mirrors Claude's, with three differences that matter:
 
 Materialize:
 
-- **plugin.json** — write `{"name":"setup-agents","description":...}` at the
-  bundle root (required marker).
-- **Rules** → `rules/<name>.md`, identical markdown; apply the same `paths:`
-  rewrite as the Claude path.
-- **Agents** → `skills/<name>/SKILL.md` per the conversion above.
+- **Rules** → `.agents/rules/<name>.md`, identical markdown; apply the same
+  `paths:` rewrite as the Claude path.
+- **Agents** → `.agents/skills/<name>/SKILL.md` per the conversion above.
+- **Skills** (bundled + external) → `.agents/skills/`. Bundled skills are already
+  available; external skills install via `bunx skills add … -a antigravity-cli`
+  (Step 4), which writes `.agents/skills/` directly.
 - **Hooks** → copy each supported hook's native script from
   `hooks/antigravity/<name>.sh` (not the `hooks/claude/` one — Antigravity gets
-  its own duplicated-logic implementation, no translation shim) into the
-  bundle root, `chmod +x`, then write `hooks.json`. Two different shapes
-  depending on the hook's event:
+  its own duplicated-logic implementation, no translation shim) into
+  `.agents/hooks/`, `chmod +x`, then write `.agents/hooks.json`. Two different
+  shapes depending on the hook's event:
   - `PreToolUse` (the 4 safety hooks): matcher+hooks wrapper —
-    `{"<name>": {"PreToolUse": [{"matcher": "...", "hooks": [{"type":"command","command":"bash \"<abs>/.agents/plugins/setup-agents/<name>.sh\""}]}]}}`.
+    `{"<name>": {"PreToolUse": [{"matcher": "...", "hooks": [{"type":"command","command":"bash \"<abs>/.agents/hooks/<name>.sh\""}]}]}}`.
     Matcher `run_command` for `block-dangerous-commands`, else
     `write_to_file|replace_file_content|multi_replace_file_content`.
   - `PreInvocation`/`Stop` (the other 6): a flat handler array, no matcher —
-    `{"<name>": {"Stop": [{"type":"command","command":"bash \"<abs>/.agents/plugins/setup-agents/<name>.sh\""}]}}`
+    `{"<name>": {"Stop": [{"type":"command","command":"bash \"<abs>/.agents/hooks/<name>.sh\""}]}}`
     (`session-start` uses `"PreInvocation"` instead of `"Stop"`).
+- **MCP servers** → if any are selected, write `.agents/mcp_config.json`. No MCP
+  server is in the current catalog, so normally this file is not written — leave
+  it out rather than emitting an empty stub.
 - **AGENTS.md** → copy the `CLAUDE.md` template to `./AGENTS.md` (skip if it
   already exists).
 - **Drift fingerprint** → if `session-start` was installed, run
-  `AGENT_STARTER_FINGERPRINT=1 .agents/plugins/setup-agents/session-start.sh > .agents/plugins/setup-agents/.agent-starter.json`
+  `AGENT_STARTER_FINGERPRINT=1 .agents/hooks/session-start.sh > .agents/.agent-starter.json`
   (mirrors the Claude Step 5 fingerprint write; `session-start.sh` reads this
   path back by default on its next `invocationNum==0` `PreInvocation`).
 
 The terminal `install.sh` implements exactly this; prefer matching its output.
 Verify `hooks.json` is valid JSON, then report per Step 6. Tell the user to
-reload Antigravity so the plugin is discovered.
+reload Antigravity so the new `.agents/` skills, rules, and hooks are picked up.
 
 ## Guardrails
 
 - Only ever write under `.claude/` + `./CLAUDE.md` (Claude) or
-  `.agents/plugins/setup-agents/` + `./AGENTS.md` (Antigravity) in the target.
+  `.agents/` + `./AGENTS.md` (Antigravity) in the target.
 - Never overwrite, remove, or install a file without it appearing in the
   approved Step 3 plan first.
 - If a category has no recommendations and the user skips it, that's fine — record

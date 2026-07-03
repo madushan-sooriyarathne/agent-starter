@@ -27,13 +27,16 @@ Installed with the Vercel `skills` CLI
 plus a skill name** — never via a Claude Code marketplace/plugin install. Each row
 below maps a display name to its repo and `--skill` argument.
 
-Install (non-interactive, into the project's Claude Code skills), run from the project
-directory:
+Install (non-interactive, into the project's skills dir for the detected host), run
+from the project directory. `<adapter>` = `claude-code` under Claude Code (→
+`.claude/skills/`) or `antigravity-cli` under Antigravity (→ `.agents/skills/`):
 
 ```bash
-bunx skills add <repo-url> --skill <skill-name> -a claude-code -y
-# example:
+bunx skills add <repo-url> --skill <skill-name> -a <adapter> -y
+# example (Claude Code):
 bunx skills add https://github.com/anthropics/skills --skill frontend-design -a claude-code -y
+# example (Antigravity):
+bunx skills add https://github.com/anthropics/skills --skill frontend-design -a antigravity-cli -y
 ```
 
 | #   | Skill                        | Repo URL                                              | `--skill`                      | Recommend when                                         |
@@ -67,7 +70,9 @@ bunx skills add <repo-url> --list
 
 ## Notes
 
-- **`-a claude-code -y`** targets the Claude Code agent and runs non-interactively.
+- **`-a <adapter> -y`** targets the detected host's agent and runs non-interactively:
+  `claude-code` (→ `.claude/skills/`) or `antigravity-cli` (→ `.agents/skills/`). Never
+  hard-code `claude-code` under Antigravity — it would leak skills into `.claude/skills/`.
   Run from the project directory for a project-level install; add `-g` for a user-level
   (global) install.
 - **`--skill <name>`** installs one named skill from a multi-skill repo. Omit it to be
