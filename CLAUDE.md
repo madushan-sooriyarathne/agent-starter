@@ -13,8 +13,8 @@ agy plugin validate plugins/<name>       # validate a single plugin against agy'
 
 ## Architecture
 
-- Top-level `agents/`, `skills/`, `rules/`, `hooks/` are the single source of truth. `plugins/<name>/` dirs contain a `plugin.json` plus **relative symlinks** into the top-level dirs (Claude Code dereferences marketplace-internal symlinks at install) — never put real component copies there. Plugin sources must NOT be `"./"`: with the repo root as plugin root, default component discovery would load every skill/agent into every plugin.
-  - **Exception: `plugins/<name>/skills/<name>/`.** `agy`'s plugin scanner follows symlinked *files* (that's why `agents/<name>.md` symlinks work) but silently skips symlinked *directories* — so a whole-directory symlink for a skill is invisible to `agy plugin install`. Those are real, generated copies instead, produced by `./scripts/materialize-agy-skills.sh`. Run it (or at least `--check`) after touching anything under `skills/<name>/` and commit both the source and the regenerated copy.
+- Top-level `agents/`, `skills/`, `rules/`, `hooks/` are the single source of truth. They reach user projects ONLY via `/setup-agents` scaffolding (see install hosts below), NOT as standalone plugins. **The marketplace ships exactly one plugin: `setup-agents`.** Adding a new agent/skill/rule/hook = drop it in the top-level dir; no per-component plugin dir, no marketplace entry. (History: the repo used to publish ~22 thin wrapper plugins, one per component, each a `plugin.json` + relative symlinks into the top-level dirs — all removed. If reintroducing any wrapper plugin, its source must NOT be `"./"`: with the repo root as plugin root, default component discovery would load every skill/agent into every plugin.)
+  - **`plugins/setup-agents/skills/setup-agents/` is a real copy, not a symlink.** `agy`'s plugin scanner follows symlinked *files* but silently skips symlinked *directories* — so a whole-directory symlink for a skill is invisible to `agy plugin install`. `./scripts/materialize-agy-skills.sh` regenerates that real copy. Run it (or at least `--check`) after touching anything under `skills/setup-agents/` and commit both the source and the regenerated copy.
 - `templaes/CLAUDE.template.md` is the template shipped to user projects by `/setup-agents`. This file (`CLAUDE.md`) is for working on the repo itself — don't confuse the two.
 - `templates/settings.json` is the template users copy to `.claude/settings.json`; it wires the hooks.
 - **Two install hosts, two distribution mechanisms.**
@@ -28,7 +28,7 @@ agy plugin validate plugins/<name>       # validate a single plugin against agy'
 
 ## Key decisions
 
-- Versioning: each `plugins/<name>/.claude-plugin/plugin.json` carries semver — bump it when that plugin's components change. Marketplace entries carry NO version (plugin.json silently wins; never set both). `plugins/setup-agents/plugin.json` (the `agy`-native marker) tracks the same version.
+- Versioning: `plugins/setup-agents/.claude-plugin/plugin.json` carries semver — bump it whenever any shipped component changes (agents/skills/rules/hooks all reach users through this one plugin). The marketplace entry carries NO version (plugin.json silently wins; never set both). `plugins/setup-agents/plugin.json` (the `agy`-native marker, sibling to `.claude-plugin/plugin.json`) tracks the same version.
 - Hooks fail open (exit 0) when `jq` is missing, except file-protection hooks which fail closed. Hook `timeout` values are in seconds.
 - Agents never set `model` — users choose their own.
 - No unconfirmed URLs get shipped in generated config (e.g. `plugin.json`'s `$schema`) — `agy` has no published schema URL, so none is set, rather than guessing one.
@@ -37,5 +37,5 @@ agy plugin validate plugins/<name>       # validate a single plugin against agy'
 
 - Every new or modified hook MUST ship with fixtures under `hooks/tests/fixtures/<host>/<hook-name>/` (`<host>` = `claude` or `antigravity`).
 - After changing any manifest, skill, or agent frontmatter, run `claude plugin validate . --strict`.
-- After changing anything under `skills/<name>/`, run `./scripts/materialize-agy-skills.sh` and commit the regenerated `plugins/*/skills/<name>/` copies alongside it.
-- Adding/renaming a skill or agent requires: marketplace entry, `plugins/<name>/` (plugin.json + symlink; skills additionally need a materialized copy, see above).
+- After changing anything under `skills/setup-agents/`, run `./scripts/materialize-agy-skills.sh` and commit the regenerated `plugins/setup-agents/skills/setup-agents/` copy alongside it.
+- Adding/renaming a skill, agent, rule, or hook = edit the top-level dir only. No marketplace entry, no `plugins/<name>/` dir (the marketplace ships `setup-agents` alone). Ensure `/setup-agents`'s scan/catalog picks up the new component.

@@ -3,12 +3,14 @@
 # materialize-agy-skills.sh — replace plugins/*/skills/<name>/ symlinks with
 # real file copies of skills/<name>/.
 #
-# Why: plugins/<name>/ dirs normally symlink into the top-level skills/, agents/,
-# rules/ dirs (single source of truth — see CLAUDE.md). Claude Code dereferences
-# those symlinks fine at install. `agy` (Antigravity CLI) does not: its plugin
-# scanner follows symlinked *files* (agents/<name>.md) but silently skips
-# symlinked *directories* (skills/<name>/), so every skill-based plugin is
-# invisible to `agy plugin install` unless skills/ contains real files.
+# Why: the marketplace ships one plugin, plugins/setup-agents/, and its skill
+# lives at plugins/setup-agents/skills/setup-agents/ (single source of truth is
+# top-level skills/setup-agents/ — see CLAUDE.md). Claude Code dereferences a
+# symlink there fine at install. `agy` (Antigravity CLI) does not: its plugin
+# scanner follows symlinked *files* but silently skips symlinked *directories*
+# (skills/<name>/), so the skill would be invisible to `agy plugin install`
+# unless it's a real directory copy. This loop stays generic over plugins/*/ so
+# it still works if more plugins are ever reintroduced.
 #
 # Run after editing anything under skills/<name>/, then commit both the source
 # and the regenerated plugins/*/skills/<name>/ copies. `--check` verifies

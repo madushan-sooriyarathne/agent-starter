@@ -1,1 +1,0 @@
-../../../hooks/claude/scan-secrets.sh

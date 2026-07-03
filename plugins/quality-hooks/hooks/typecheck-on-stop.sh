@@ -1,1 +1,0 @@
-../../../hooks/claude/typecheck-on-stop.sh

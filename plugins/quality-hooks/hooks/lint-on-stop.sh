@@ -1,1 +1,0 @@
-../../../hooks/claude/lint-on-stop.sh

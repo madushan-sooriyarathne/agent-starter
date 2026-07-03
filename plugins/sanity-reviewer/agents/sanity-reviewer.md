@@ -1,1 +1,0 @@
-../../../agents/sanity-reviewer.md

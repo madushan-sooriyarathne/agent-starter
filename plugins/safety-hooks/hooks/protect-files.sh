@@ -1,1 +1,0 @@
-../../../hooks/claude/protect-files.sh
