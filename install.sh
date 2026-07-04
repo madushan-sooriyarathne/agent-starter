@@ -550,16 +550,30 @@ build_catalogs() {
   [ "$HAS_LINTER" = "1" ] && cat_hook_defaults[7]=1
 
   # --- Third-party plugins (behavior plugins; all pre-marked) ---
-  cat_plugin_names=(caveman ponytail graphify)
-  cat_plugin_descs=("ultra-compressed replies (bunx)" "lazy/YAGNI mode (claude plugin)" "codebase knowledge graph (uv/pipx/pip)")
-  cat_plugin_defaults=(1 1 1)
+  # caveman + ponytail moved to the Skills catalog below (skills-CLI installs).
+  cat_plugin_names=(graphify)
+  cat_plugin_descs=("codebase knowledge graph (uv/pipx/pip)")
+  cat_plugin_defaults=(1)
 
   # --- Skills (GitHub repos via `bunx skills add <repo> --skill <name>`) ---
-  cat_skill_names=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator)
-  cat_skill_repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/next-pro-seo https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills)
-  cat_skill_skillnames=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator)
-  cat_skill_descs=("UI / component design" "web app testing" "Next.js SEO/GEO (your repo, needs gh auth)" "brand voice & guidelines" "build MCP servers" "author new skills")
-  cat_skill_defaults=(0 1 0 0 0 0)
+  # caveman + ponytail(+review/audit/debt) are skills-CLI packages; the base
+  # caveman/ponytail skills also append a mode nudge to the host doc on install.
+  cat_skill_names=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator
+    caveman ponytail ponytail-review ponytail-audit ponytail-debt
+    design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui)
+  cat_skill_repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/next-pro-seo https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills
+    https://github.com/JuliusBrussee/caveman
+    https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail
+    https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill)
+  cat_skill_skillnames=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator
+    caveman ponytail ponytail-review ponytail-audit ponytail-debt
+    design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui)
+  cat_skill_descs=("UI / component design" "web app testing" "Next.js SEO/GEO (your repo, needs gh auth)" "brand voice & guidelines" "build MCP servers" "author new skills"
+    "ultra-compressed replies" "lazy/YAGNI build discipline" "review diff for over-engineering" "whole-repo over-engineering audit" "harvest ponytail: debt comments"
+    "anti-slop frontend design" "upgrade existing UI to premium" "agency-grade visual design" "clean editorial minimalist UI" "brutalist / tactical telemetry UI")
+  cat_skill_defaults=(0 1 0 0 0 0
+    1 1 0 0 0
+    0 0 0 0 0)
   [ "$HAS_NEXT" = "1" ] && {
     cat_skill_defaults[0]=1
     cat_skill_defaults[2]=1
@@ -1351,6 +1365,15 @@ SKILL_ADAPTERS=()
 [ "$WANT_CLAUDE" = "1" ] && SKILL_ADAPTERS+=("claude-code")
 [ "$WANT_AG" = "1" ] && SKILL_ADAPTERS+=("antigravity-cli")
 
+# Mode nudges appended to the host doc(s) when the matching base skill installs.
+CAVEMAN_CTX="# Communication style
+Use caveman mode for all responses: drop articles, drop filler words, fragments OK.
+Activate with \`/caveman\` at session start (or load via skill)."
+PONYTAIL_CTX="# Build discipline
+Apply ponytail (YAGNI) discipline: stop at the first rung of the ladder that holds.
+No speculative abstractions, no boilerplate for later. Activate with \`/ponytail\` or
+load via the ponytail skill."
+
 if [ ${#sel_skills[@]} -gt 0 ]; then
   RUNNER=""
   command -v bunx >/dev/null 2>&1 && RUNNER="bunx"
@@ -1382,6 +1405,11 @@ if [ ${#sel_skills[@]} -gt 0 ]; then
       if [ "$installed_any" = "1" ]; then
         ok "skill: $skn"
         installed_skills+=("$skn")
+        # Base mode skills nudge the host doc; sub-tools (review/audit/debt) don't.
+        case "$skn" in
+          caveman) append_contextmd both "$CAVEMAN_CTX" ;;
+          ponytail) append_contextmd both "$PONYTAIL_CTX" ;;
+        esac
       else
         skip "skill failed: $skn (private repos need 'gh auth' — continuing)"
       fi
@@ -1393,57 +1421,8 @@ fi
 
 if [ ${#sel_plugins[@]} -gt 0 ]; then
   head "Third-party plugins"
-  PRUNNER=""
-  command -v bunx >/dev/null 2>&1 && PRUNNER="bunx"
-  [ -z "$PRUNNER" ] && command -v npx >/dev/null 2>&1 && PRUNNER="npx"
-
   for p in "${sel_plugins[@]}"; do
     case "$p" in
-      caveman)
-        if [ -z "$PRUNNER" ]; then
-          skip "caveman: bunx/npx not found — skipped"
-          continue
-        fi
-        installed_any=0
-        for adapter in "${SKILL_ADAPTERS[@]}"; do
-          (cd "$TARGET" && "$PRUNNER" skills add JuliusBrussee/caveman -a "$adapter" -y </dev/null) && installed_any=1
-        done
-        if [ "$installed_any" = "1" ]; then
-          append_contextmd both "# Communication style
-Use caveman mode for all responses: drop articles, drop filler words, fragments OK.
-Activate with \`/caveman\` at session start (or load via skill)."
-          ok "plugin: caveman"
-        else skip "caveman: install failed — continuing"; fi
-        ;;
-      ponytail)
-        # Available for both hosts: Claude Code via `claude plugin marketplace add`,
-        # Antigravity via `agy plugin install <url>` (both user-scoped).
-        PONYTAIL_CTX="# Build discipline
-Apply ponytail (YAGNI) discipline: stop at the first rung of the ladder that holds.
-No speculative abstractions, no boilerplate for later. Activate with \`/ponytail\` or
-load via the ponytail skill."
-        if [ "$WANT_CLAUDE" = "1" ]; then
-          if command -v claude >/dev/null 2>&1; then
-            if claude plugin marketplace add DietrichGebert/ponytail </dev/null 2>/dev/null &&
-              claude plugin install ponytail@ponytail </dev/null 2>/dev/null; then
-              ok "plugin: ponytail (user-scoped; restart Claude Code)"
-            else skip "ponytail: claude plugin install failed — run manually:  claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail"; fi
-          else
-            skip "ponytail: 'claude' CLI not found — run in a Claude Code session:  /plugin marketplace add DietrichGebert/ponytail  then  /plugin install ponytail@ponytail"
-          fi
-          append_contextmd claude "$PONYTAIL_CTX"
-        fi
-        if [ "$WANT_AG" = "1" ]; then
-          if command -v agy >/dev/null 2>&1; then
-            if agy plugin install https://github.com/DietrichGebert/ponytail </dev/null 2>/dev/null; then
-              ok "plugin: ponytail (AG; user-scoped — reload Antigravity)"
-            else skip "ponytail: 'agy plugin install' failed — run manually:  agy plugin install https://github.com/DietrichGebert/ponytail"; fi
-          else
-            skip "ponytail: 'agy' CLI not found — run manually:  agy plugin install https://github.com/DietrichGebert/ponytail"
-          fi
-          append_contextmd ag "$PONYTAIL_CTX"
-        fi
-        ;;
       graphify)
         GPM=""
         if command -v uv >/dev/null 2>&1; then

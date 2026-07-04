@@ -58,6 +58,24 @@ bunx skills add https://github.com/anthropics/skills --skill frontend-design -a 
 | 15  | tdd                         | `https://github.com/mattpocock/skills`                    | `tdd`                         | Test config detected (`jest.config.*`, `vitest.config.*`, etc.) |
 | 16  | to-prd                      | `https://github.com/mattpocock/skills`                    | `to-prd`                      | Opt-in (off by default)                                         |
 | 17  | ui-ux-pro-max               | `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill` | `ui-ux-pro-max`               | Frontend detected                                               |
+| 18  | caveman                     | `https://github.com/JuliusBrussee/caveman`                | `caveman`                     | Always (default on) — appends comm-style nudge ¹                |
+| 19  | ponytail                    | `https://github.com/DietrichGebert/ponytail`              | `ponytail`                    | Always (default on) — appends build-discipline nudge ¹          |
+| 20  | ponytail-review             | `https://github.com/DietrichGebert/ponytail`              | `ponytail-review`             | Opt-in (over-engineering review)                                |
+| 21  | ponytail-audit              | `https://github.com/DietrichGebert/ponytail`              | `ponytail-audit`              | Opt-in (whole-repo over-engineering audit)                      |
+| 22  | ponytail-debt               | `https://github.com/DietrichGebert/ponytail`              | `ponytail-debt`               | Opt-in (harvest `ponytail:` debt comments)                      |
+| 23  | design-taste-frontend       | `https://github.com/Leonxlnx/taste-skill`                 | `design-taste-frontend`       | Frontend detected (anti-slop landing/portfolio design)          |
+| 24  | redesign-existing-projects  | `https://github.com/Leonxlnx/taste-skill`                 | `redesign-existing-projects`  | Frontend detected (upgrading existing UI)                       |
+| 25  | high-end-visual-design      | `https://github.com/Leonxlnx/taste-skill`                 | `high-end-visual-design`      | Frontend detected (agency-grade visual polish)                  |
+| 26  | minimalist-ui               | `https://github.com/Leonxlnx/taste-skill`                 | `minimalist-ui`               | Frontend detected (clean editorial minimalism)                  |
+| 27  | industrial-brutalist-ui     | `https://github.com/Leonxlnx/taste-skill`                 | `industrial-brutalist-ui`     | Frontend / data-dashboard detected (brutalist telemetry)        |
+
+¹ **caveman + ponytail (base skills only)** carry a mode: after a successful install
+they append a short nudge block to the host doc (`CLAUDE.md` and/or `AGENTS.md`) so the
+mode is discoverable — `# Communication style` for caveman, `# Build discipline` for
+ponytail. The `ponytail-review`/`ponytail-audit`/`ponytail-debt` sub-tools and all other
+external skills append nothing. (These two were previously in
+`third-party-plugins-catalog.md`; they moved here once both shipped as skills-CLI
+packages. Graphify stays a third-party plugin — it's a Python tool, not a skill.)
 
 ## Adding your own
 

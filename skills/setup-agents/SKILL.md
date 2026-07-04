@@ -44,9 +44,10 @@ single host, tell the user to use `/setup-claude` or `/setup-agy`.
    summary (installed / skipped / removed). Tell the user to restart Claude Code
    **and** reload Antigravity.
 
-External skills and the Caveman plugin install once per adapter in `ADAPTERS`.
-Ponytail installs per selected host (Claude Code via `claude plugin`, Antigravity
-via `agy plugin install <url>`), user-scoped on both. Everything else in
+External skills — including caveman and ponytail — install once per adapter in
+`ADAPTERS`; the base caveman/ponytail skills also append a mode nudge to the host
+doc. Graphify (the sole third-party plugin) installs once as a system tool.
+Everything else in
 `references/scan-and-plan.md` — the governing principle, gap-analysis mode, and
 guardrails — applies as written. When either host already has config
 (`.claude/`+`CLAUDE.md` or `.agents/`+`AGENTS.md`), that host takes the

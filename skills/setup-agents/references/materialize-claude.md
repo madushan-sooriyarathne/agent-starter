@@ -27,20 +27,9 @@ Apply the approved plan exactly:
   project (real script names from the manifest read in Step 1, real `gh`
   subcommands only if a GitHub remote + `gh` were detected) — never paste in a
   generic allow-list wholesale.
-- **Third-party plugins:** read `references/third-party-plugins-catalog.md` for exact
-  install sequences. Apply in this order for each selected plugin:
-  - **Caveman:** run `bunx skills add JuliusBrussee/caveman -a claude-code -y` from the
-    project directory (project-scoped) — lands the skill in `.claude/skills/`. Then
-    append the caveman context snippet from the catalog to `CLAUDE.md`.
-  - **Ponytail:** Ponytail uses the Claude Code native plugin system and installs to
-    `~/.claude/` (user-scoped, not project-scoped). Print the two in-session commands
-    for the user to run manually:
-    ```
-    /plugin marketplace add DietrichGebert/ponytail
-    /plugin install ponytail@ponytail
-    ```
-    Tell the user to restart Claude Code after running them. Then append the ponytail
-    CLAUDE.md snippet from the catalog.
+- **Third-party plugins:** read `references/third-party-plugins-catalog.md`. This is now
+  **Graphify only** — caveman + ponytail install as external skills (handled in the
+  Skills step below).
   - **Graphify:** detect a Python package manager by priority `uv` → `pipx` → `pip`
     (`uv tool install graphifyy`, else `pipx install graphifyy`, else
     `pip install graphifyy`). If none is on PATH, warn and skip with a note to install
@@ -48,8 +37,7 @@ Apply the approved plan exactly:
     `graphify install --project`, append the graph-report CLAUDE.md snippet from the
     catalog, then tell the user to run `/graphify .` in Claude Code to build the graph
     and to commit `graphify-out/` so teammates share it.
-    Treat all third-party plugin install failures as non-fatal — log the failure, skip
-    that plugin, and continue.
+    Treat install failure as non-fatal — log the failure, skip, and continue.
 - **Skills:** handle the two groups separately:
   - **Bundled skills:** no action required — they are already available via the plugin.
     Log each selected bundled skill as "available (bundled)" in the summary.
@@ -58,7 +46,10 @@ Apply the approved plan exactly:
     project directory (repo URL and skill name from the catalog) → writes
     `.claude/skills/`. Private repos (e.g. `madushan-sooriyarathne/next-pro-seo`) need `gh auth` —
     treat an auth failure as non-fatal and continue. There is no marketplace/plugin
-    install step.
+    install step. After a successful install of the base `caveman` or `ponytail` skill,
+    append its mode nudge from the skills-catalog footnote to `CLAUDE.md`
+    (`# Communication style` / `# Build discipline`); the ponytail sub-tools and all
+    other external skills append nothing.
 - **CLAUDE.md:** always at the **project root** (`./CLAUDE.md`) — never
   `.claude/CLAUDE.md`. Apply the doc action the plan carries (Step 2.6 /
   Step 1.6), then run the budget check on the final `./CLAUDE.md`

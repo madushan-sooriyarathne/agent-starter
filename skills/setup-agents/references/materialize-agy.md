@@ -53,20 +53,17 @@ Three differences from the Claude path that matter:
     `bunx skills add <repo-url> --skill <skill-name> -a antigravity-cli -y` from the
     project directory (repo URL and skill name from the "External Skills" table in
     `references/skills-catalog.md` — always both a repo URL and `--skill`; never the
-    display name alone) → writes `.agents/skills/` directly. Do **not** use the caveman-style repo-shorthand form here — that omits
-    `--skill` only because caveman is a single-skill third-party-plugin repo (below).
-- **Third-party plugins:** read `references/third-party-plugins-catalog.md`.
-  - **Caveman:** run `bunx skills add JuliusBrussee/caveman -a antigravity-cli -y`
-    from the project directory → lands in `.agents/skills/`. Then append the caveman
-    context snippet from the catalog to `AGENTS.md`.
-  - **Ponytail:** run `agy plugin install https://github.com/DietrichGebert/ponytail`
-    (user-scoped, lands in `~/.gemini/config/plugins/`). Then append the ponytail build-discipline
-    snippet from the catalog to `AGENTS.md`. Non-fatal on failure — print the manual command.
+    display name alone) → writes `.agents/skills/` directly. After a successful install
+    of the base `caveman` or `ponytail` skill, append its mode nudge from the
+    skills-catalog footnote to `AGENTS.md` (`# Communication style` / `# Build
+discipline`); the ponytail sub-tools and all other external skills append nothing.
+- **Third-party plugins:** read `references/third-party-plugins-catalog.md` — now
+  **Graphify only** (caveman + ponytail install as external skills, above).
   - **Graphify:** host-agnostic Python tool — same detect/install as the Claude path
     (`uv` → `pipx` → `pip`), then `graphify install --project`, append the graph-report
     snippet to `AGENTS.md`, and tell the user to run `/graphify .` and commit
     `graphify-out/`.
-    Treat all third-party plugin install failures as non-fatal.
+    Treat install failure as non-fatal.
 - **Hooks** → copy each supported hook's native script from
   `${BUNDLE}/hooks/antigravity/<name>.sh` (not the `hooks/claude/` one —
   Antigravity gets its own duplicated-logic implementation, no translation shim)

@@ -172,8 +172,8 @@ out:
   "Recommend when" rule against the scan, and build the recommended selection
   (bundled skills marked as already available, external skills queued for
   install). Excludes catalog items with no supporting evidence.
-- **Full** — every item in all 6 catalogs plus all three third-party plugins.
-  Excludes nothing.
+- **Full** — every item in all 6 catalogs plus Graphify (the one third-party plugin;
+  caveman + ponytail are external skills, covered by the skills catalog). Excludes nothing.
 - **Custom** — pick each agent, rule, hook, and skill individually (the
   category-by-category flow in Step 2; every item is listed and toggleable).
 
@@ -254,13 +254,10 @@ Go in this order, one turn each:
    `protect-files`, `warn-large-files`); pre-mark `format-on-save` when Biome is
    detected, `typecheck-on-stop`/`lint-on-stop` when a type-checker/linter is
    detected, `session-start` by default (cheap).
-4. **Third-party plugins** — read `references/third-party-plugins-catalog.md`. Present
-   all three (Caveman, Ponytail, Graphify) **pre-marked by default**. These inject
-   persistent behavior rules into the project doc on install, so confirm before proceeding.
-   Note scope differences: Caveman is project-scoped; Ponytail is user-scoped (installs
-   to `~/.claude/`, **Claude Code only** — has no Antigravity equivalent, so it is
-   skipped whenever `TARGETS` is `{agy}`); Graphify is a system tool that writes to the
-   project doc.
+4. **Third-party plugins** — read `references/third-party-plugins-catalog.md`. This is
+   now **Graphify only** (Caveman + Ponytail moved to the Skills catalog — see Step 5).
+   Present Graphify **pre-marked by default**; it's a system tool (`uv`/`pipx`/`pip`)
+   that writes a graph-report snippet to the project doc, so confirm before proceeding.
 5. **Skills** — read `references/skills-catalog.md`. Present in two groups:
    - **Bundled skills** (already included with this plugin — no install needed): scan
      the bundle's `skills/` dir (see bundle-root resolution above) for subdirectory
@@ -271,7 +268,10 @@ Go in this order, one turn each:
    - **Additional skills** (installed from GitHub via `bunx skills add`): read the
      catalog's "External Skills" section. Pre-mark recommendations from the scan.
      Each selected skill runs `bunx skills add <repo-url> --skill <skill-name> -a <adapter> -y`
-     at install time, once per adapter in `ADAPTERS`.
+     at install time, once per adapter in `ADAPTERS`. The base `caveman` and `ponytail`
+     skills are pre-marked by default and, on successful install, append a mode nudge to
+     the host doc (`# Communication style` / `# Build discipline`) — see the catalog
+     footnote. All other external skills and the ponytail sub-tools append nothing.
 6. **Project doc template** — the template is `CLAUDE.md` for `claude`,
    `AGENTS.md` for `agy` (both when `TARGETS` has both), and always lands at the
    **project root** — never inside `.claude/` or `.agents/`.
@@ -301,7 +301,7 @@ hosts, one plan drives both — note the target set in the table caption
 | `security.md` (rule)              | install | `src/auth/`, `src/middleware/` found                   | path-scoped                 |
 | `testing.md` (rule)               | install | `vitest.config.ts` + `*.test.ts` found                 | always-loaded (no `paths:`) |
 | `block-dangerous-commands` (hook) | install | always-on safety                                       | hook — no context cost      |
-| `caveman` (plugin)                | install | default selected; user confirmed                       | project-doc snippet         |
+| `caveman` (skill)                 | install | default selected; user confirmed                       | project-doc snippet         |
 | `graphify` (plugin)               | skip    | `uv`/`pipx` not found on PATH                          | —                           |
 | `pr-review` (skill)               | skip    | no GitHub remote / `gh` not installed                  | —                           |
 | `old-custom-rule.md` (rule)       | remove  | no longer justified by scan; not in approved selection | —                           |
