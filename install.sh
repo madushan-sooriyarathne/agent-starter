@@ -532,7 +532,7 @@ select_all() {
   # --- Skills (GitHub repos via `bunx skills add <repo> --skill <name>`) ---
   # Parallel arrays: names[] (display) / repos[] (github URL) / skillnames[] / descs[] / defaults[]
   names=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator)
-  repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan/next-pro-seo https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills)
+  repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/next-pro-seo https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills)
   skillnames=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator)
   descs=("UI / component design" "web app testing" "Next.js SEO/GEO (your repo, needs gh auth)" "brand voice & guidelines" "build MCP servers" "author new skills")
   defaults=(0 1 0 0 0 0)

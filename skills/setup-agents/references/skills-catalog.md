@@ -43,7 +43,7 @@ bunx skills add https://github.com/anthropics/skills --skill frontend-design -a 
 | --- | --------------------------- | --------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
 | 1   | frontend-design             | `https://github.com/anthropics/skills`                    | `frontend-design`             | Frontend detected (`.tsx`/`.jsx`, `components/` dir)            |
 | 2   | webapp-testing              | `https://github.com/anthropics/skills`                    | `webapp-testing`              | Always                                                          |
-| 3   | next-pro-seo                | `https://github.com/madushan/next-pro-seo`                | `next-pro-seo`                | `next.config.*` detected                                        |
+| 3   | next-pro-seo                | `https://github.com/madushan-sooriyarathne/next-pro-seo`  | `next-pro-seo`                | `next.config.*` detected                                        |
 | 4   | brand-guidelines            | `https://github.com/anthropics/skills`                    | `brand-guidelines`            | Hospitality / real-estate / marketing signals                   |
 | 5   | mcp-builder                 | `https://github.com/anthropics/skills`                    | `mcp-builder`                 | Opt-in (off by default)                                         |
 | 6   | skill-creator               | `https://github.com/anthropics/skills`                    | `skill-creator`               | Opt-in (off by default)                                         |

@@ -56,7 +56,7 @@ Apply the approved plan exactly:
   - **External skills:** for each selected external skill, run
     `bunx skills add <repo-url> --skill <skill-name> -a claude-code -y` from the
     project directory (repo URL and skill name from the catalog) → writes
-    `.claude/skills/`. Private repos (e.g. `madushan/next-pro-seo`) need `gh auth` —
+    `.claude/skills/`. Private repos (e.g. `madushan-sooriyarathne/next-pro-seo`) need `gh auth` —
     treat an auth failure as non-fatal and continue. There is no marketplace/plugin
     install step.
 - **CLAUDE.md:** if selected, copy `${BUNDLE}/template/CLAUDE.md`

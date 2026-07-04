@@ -138,7 +138,7 @@ bunx skills add <repo-url> --skill <skill-name> -a claude-code -y
 | ----------------------------- | -------------------------------------- | ----------------------------- |
 | `frontend-design`             | `anthropics/skills`                    | Frontend detected             |
 | `webapp-testing`              | `anthropics/skills`                    | Always                        |
-| `next-pro-seo`                | `madushan/next-pro-seo`                | Next.js detected              |
+| `next-pro-seo`                | `madushan-sooriyarathne/next-pro-seo`  | Next.js detected              |
 | `brand-guidelines`            | `anthropics/skills`                    | Hospitality/marketing signals |
 | `mcp-builder`                 | `anthropics/skills`                    | Opt-in                        |
 | `skill-creator`               | `anthropics/skills`                    | Opt-in                        |
