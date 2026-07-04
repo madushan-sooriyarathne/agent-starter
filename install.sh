@@ -930,3 +930,5 @@ say "  Always-loaded est.:  ~${TOKEN_EST} tokens (CLAUDE.md/AGENTS.md + path-les
 say ""
 [ "$WANT_CLAUDE" = "1" ] && say "${YELLOW}Restart Claude Code${RESET} so the new agents, rules, and hooks are picked up."
 [ "$WANT_AG" = "1" ] && say "${YELLOW}Reload Antigravity${RESET} so the new .agents/ skills, rules, and hooks are picked up."
+
+exit 0  # success — don't leak the last conditional's exit status

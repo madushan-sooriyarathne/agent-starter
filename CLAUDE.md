@@ -5,11 +5,14 @@ A Claude Code plugin marketplace: agents, skills, rules, and safety hooks, publi
 ## Commands
 
 ```bash
+bash scripts/test.sh                     # ONE gate — run before every commit (aggregates everything below + more)
 bash hooks/tests/run-all.sh              # run all hook fixture tests (requires jq)
 claude plugin validate . --strict        # validate marketplace + plugin manifests
 agy plugin validate plugins/<name>       # validate a single plugin against agy's own schema
 ./scripts/materialize-agy-skills.sh --check  # verify plugins/*/skills/ copies aren't stale
 ```
+
+`scripts/test.sh` is the single consistency gate: bash syntax, JSON validity, plugin.json version parity (+ no marketplace version), agent/skill frontmatter, hook antigravity-twin + fixture parity, catalog drift (every component listed in `skills/setup-agents/references/*-catalog.md`), agy-skill copy freshness, the hook fixture suite, an `install.sh` smoke run (scaffolds into a temp dir, asserts `.claude/` output), and — when the CLIs are present — `claude`/`agy plugin validate`. Structural checks fail closed; missing optional CLIs are skipped, not failed. Exit 0 = shippable.
 
 ## Architecture
 
@@ -35,6 +38,7 @@ agy plugin validate plugins/<name>       # validate a single plugin against agy'
 
 ## Workflow
 
+- **Run `bash scripts/test.sh` before every commit** and make it green. It fails closed on any structural break — a new component missing from its catalog, a hook without its antigravity twin or fixtures, mismatched plugin.json versions, broken JSON/bash, or an `install.sh` that no longer scaffolds. It's the enforcement layer for every rule below; the individual commands still exist for targeted runs.
 - Every new or modified hook MUST ship with fixtures under `hooks/tests/fixtures/<host>/<hook-name>/` (`<host>` = `claude` or `antigravity`).
 - After changing any manifest, skill, or agent frontmatter, run `claude plugin validate . --strict`.
 - After changing anything under `skills/setup-agents/`, run `./scripts/materialize-agy-skills.sh` and commit the regenerated `plugins/setup-agents/skills/setup-agents/` copy alongside it.
