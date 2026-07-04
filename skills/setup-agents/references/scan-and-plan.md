@@ -174,7 +174,8 @@ out:
   install). Excludes catalog items with no supporting evidence.
 - **Full** — every item in all 6 catalogs plus all three third-party plugins.
   Excludes nothing.
-- **Let me check** — the category-by-category flow in Step 2.
+- **Custom** — pick each agent, rule, hook, and skill individually (the
+  category-by-category flow in Step 2; every item is listed and toggleable).
 
 **One-shot tiers (Minimal / Standard / Full):** build the selection silently
 from the catalogs, skip all per-category prompts, and go straight to Step 3's
@@ -187,7 +188,7 @@ further questions **except** when one of these fires — only then stop and ask:
   or overwriting/removing existing files in gap-analysis mode).
   Otherwise apply the whole plan and report at the end.
 
-**Let me check** → proceed to Step 2.
+**Custom** → proceed to Step 2.
 
 ## Step 1.7 — Gap-analysis remediation (gap mode only)
 
@@ -238,7 +239,7 @@ Carry both selections into Step 3 as `install` rows (chosen missing items) and
 
 ## Step 2 — Category-by-category selection
 
-(Only reached from the **Let me check** tier.)
+(Only reached from the **Custom** tier.)
 
 Read the matching catalog before presenting each category, and pre-mark the
 recommended items per its **Recommend when** column against the scan.
@@ -271,10 +272,18 @@ Go in this order, one turn each:
      catalog's "External Skills" section. Pre-mark recommendations from the scan.
      Each selected skill runs `bunx skills add <repo-url> --skill <skill-name> -a <adapter> -y`
      at install time, once per adapter in `ADAPTERS`.
-6. **Project doc template** — ask once whether to copy the template
-   (`CLAUDE.md` for `claude`, `AGENTS.md` for `agy` — both when `TARGETS` has
-   both). If a target's doc already exists, ask whether to overwrite (default:
-   keep existing, skip).
+6. **Project doc template** — the template is `CLAUDE.md` for `claude`,
+   `AGENTS.md` for `agy` (both when `TARGETS` has both), and always lands at the
+   **project root** — never inside `.claude/` or `.agents/`.
+   - **No doc yet** → ask once whether to copy the template.
+   - **Doc already exists** → never silently skip or overwrite. Read both the
+     existing root doc and the template, compare them, and tell the user in 2-3
+     lines what differs (e.g. existing is project-specific and richer → keep;
+     existing is the stale/thin default and the template adds sections → update).
+     Then one `AskUserQuestion`: **Keep existing** / **Replace with template** /
+     **Merge** (fold the template's missing sections into the existing doc,
+     preserving the user's own content). Recommend the safer of keep/merge; don't
+     decide for them. Carry the choice into the Step 3 plan as the doc's action.
 
 Use AskUserQuestion for each category so the user can multi-select. Accept
 "all", "the recommended ones", "none", or specific names.
@@ -301,7 +310,7 @@ Cost class: `invoked-only` for agents/skills, `path-scoped` for rules with
 `paths:` frontmatter, `always-loaded` for rules without it, `hook` for hooks
 (zero per-turn context cost, registered in host config).
 
-For the **Let me check** tier, ask one `AskUserQuestion`: **approve the plan** /
+For the **Custom** tier, ask one `AskUserQuestion`: **approve the plan** /
 **adjust** (loop back to Step 2) / **cancel**. Do not proceed to materialization
 without approval. For one-shot tiers (Minimal / Standard / Full), still render
 this table, but auto-approve and proceed — interrupt only on the missing-dep or
@@ -323,9 +332,11 @@ independently — no shared files, no symlinks between the two trees).
 
 ## Guardrails
 
-- Only ever write under the target host's tree: `.claude/` + `./CLAUDE.md`
-  (`claude`), `.agents/` + `./AGENTS.md` (`agy`). Never write a tree for a host
-  not in `TARGETS`.
+- Only ever write under the target host's tree: the `.claude/` directory plus a
+  `CLAUDE.md` at the **project root** (`claude`), the `.agents/` directory plus
+  an `AGENTS.md` at the **project root** (`agy`). The project doc is ALWAYS
+  root-level — never write `.claude/CLAUDE.md` or `.agents/AGENTS.md`. Never
+  write a tree for a host not in `TARGETS`.
 - Never overwrite, remove, or install a file without it appearing in the
   approved Step 3 plan first.
 - If a category has no recommendations and the user skips it, that's fine —

@@ -380,14 +380,14 @@ else
       say "  1) Minimal   — CLAUDE.md + 4 safety hooks only"
       say "  2) Standard  — recommended picks from the scan ${DIM}(default)${RESET}"
       say "  3) Full      — everything in every category + all 3 plugins"
-      say "  4) Let me check — choose each category by hand"
+      say "  4) Custom    — pick each agent, rule, hook & skill individually"
       printf "> "
       ask_line
       case "$REPLY_LINE" in
         1 | minimal) TIER="minimal" ;;
         "" | 2 | standard) TIER="standard" ;;
         3 | full) TIER="full" ;;
-        4 | check | "let me check") TIER="letmecheck" ;;
+        4 | custom | check | "let me check") TIER="letmecheck" ;;
         *)
           TIER="standard"
           say "  ${DIM}Unrecognized — using Standard.${RESET}"
@@ -403,7 +403,11 @@ else
       WANT_CLAUDEMD=1
       [ -f "$TARGET/CLAUDE.md" ] && WANT_CLAUDEMD=0 # crucial: don't overwrite existing without asking
       if [ -f "$TARGET/CLAUDE.md" ] && [ "$INTERACTIVE" = "1" ]; then
-        printf "  CLAUDE.md exists. Overwrite with template? [y/N]: "
+        EXIST_LINES=$(grep -cv '^[[:space:]]*$' "$TARGET/CLAUDE.md" 2>/dev/null || printf '0')
+        TMPL_LINES=$(grep -cv '^[[:space:]]*$' "$SCRIPT_DIR/templates/CLAUDE.template.md" 2>/dev/null || printf '0')
+        say "  CLAUDE.md exists at project root (${EXIST_LINES} non-blank lines); template has ${TMPL_LINES}."
+        say "  ${DIM}Keeping it preserves your project notes. Diff: diff \"$TARGET/CLAUDE.md\" \"$SCRIPT_DIR/templates/CLAUDE.template.md\"${RESET}"
+        printf "  Overwrite existing CLAUDE.md with the template? [y/N]: "
         ask_line
         case "$REPLY_LINE" in y | Y | yes | YES) WANT_CLAUDEMD=1 ;; esac
       fi
@@ -657,7 +661,12 @@ select_all() {
   WANT_CLAUDEMD=0
   if [ -f "$TARGET/CLAUDE.md" ]; then
     # Crucial action — always confirm an overwrite, even in one-shot tiers.
-    printf "  CLAUDE.md already exists. Overwrite with the template? [y/N]: "
+    # bash can't merge intelligently; show sizes + a diff hint, default to keep.
+    EXIST_LINES=$(grep -cv '^[[:space:]]*$' "$TARGET/CLAUDE.md" 2>/dev/null || printf '0')
+    TMPL_LINES=$(grep -cv '^[[:space:]]*$' "$SCRIPT_DIR/templates/CLAUDE.template.md" 2>/dev/null || printf '0')
+    say "  CLAUDE.md exists at project root (${EXIST_LINES} non-blank lines); template has ${TMPL_LINES}."
+    say "  ${DIM}Keeping it preserves your project notes. Diff: diff \"$TARGET/CLAUDE.md\" \"$SCRIPT_DIR/templates/CLAUDE.template.md\"${RESET}"
+    printf "  Overwrite existing CLAUDE.md with the template? [y/N]: "
     ask_line
     case "$REPLY_LINE" in y | Y | yes | YES) WANT_CLAUDEMD=1 ;; *) WANT_CLAUDEMD=0 ;; esac
   elif [ "$TIER" = "standard" ] || [ "$TIER" = "full" ]; then

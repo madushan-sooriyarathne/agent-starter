@@ -59,13 +59,18 @@ Apply the approved plan exactly:
     `.claude/skills/`. Private repos (e.g. `madushan-sooriyarathne/next-pro-seo`) need `gh auth` —
     treat an auth failure as non-fatal and continue. There is no marketplace/plugin
     install step.
-- **CLAUDE.md:** if selected, copy `${BUNDLE}/template/CLAUDE.md`
-  → `./CLAUDE.md`. Then run the budget check: `grep -cv '^[[:space:]]*$' CLAUDE.md`.
-  - Under 25 non-blank lines: pass, no message needed.
-  - 25-50: warn — list the longest sections, ask the user (one
-    `AskUserQuestion`) which to trim.
-  - Over 50: must propose specific cuts and keep trimming until ≤50 before
-    moving on.
+- **CLAUDE.md:** always at the **project root** (`./CLAUDE.md`) — never
+  `.claude/CLAUDE.md`. Apply the doc action the plan carries (Step 2.6 /
+  Step 1.6), then run the budget check on the final `./CLAUDE.md`
+  (`grep -cv '^[[:space:]]*$' CLAUDE.md`):
+  - **Fresh copy** → copy `${BUNDLE}/template/CLAUDE.md` → `./CLAUDE.md`.
+  - **Replace** → same copy, overwriting the existing root `./CLAUDE.md`.
+  - **Merge** → keep the existing `./CLAUDE.md`, fold in only the template
+    sections it lacks, preserve the user's own content.
+  - **Keep existing** → leave `./CLAUDE.md` untouched, no write.
+  - Budget: under 25 non-blank lines pass; 25-50 warn (list the longest
+    sections, ask via one `AskUserQuestion` which to trim); over 50 must propose
+    specific cuts and keep trimming until ≤50 before moving on.
 - **Removals (gap-analysis mode only):** for each file the approved plan marks
   `remove`, delete it individually (never a bulk `rm`) and confirm immediately
   after — list what was removed and why in the summary. Never remove a file that

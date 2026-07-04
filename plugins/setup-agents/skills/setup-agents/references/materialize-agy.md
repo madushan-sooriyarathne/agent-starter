@@ -82,11 +82,15 @@ Three differences from the Claude path that matter:
 - **MCP servers** → if any are selected, write `.agents/mcp_config.json`. No MCP
   server is in the current catalog, so normally this file is not written — leave
   it out rather than emitting an empty stub.
-- **AGENTS.md** → if the project-doc template was selected, copy
-  `${BUNDLE}/template/CLAUDE.md` → `./AGENTS.md` (skip if it already exists).
-  Then run the same budget check as the Claude path against `AGENTS.md`
-  (`grep -cv '^[[:space:]]*$' AGENTS.md`; ≤25 pass, 25-50 warn/trim, >50 must
-  trim to ≤50).
+- **AGENTS.md** → always at the **project root** (`./AGENTS.md`) — never
+  `.agents/AGENTS.md`. Apply the doc action the plan carries (Step 2.6) — never
+  silently skip an existing doc, the compare/recommend happens in Step 2.6 — then
+  run the same budget check as the Claude path (`grep -cv '^[[:space:]]*$' AGENTS.md`;
+  ≤25 pass, 25-50 warn/trim, >50 must trim to ≤50):
+  - **Fresh copy** → copy `${BUNDLE}/template/CLAUDE.md` → `./AGENTS.md`.
+  - **Replace** → same copy, overwriting the existing root `./AGENTS.md`.
+  - **Merge** → keep `./AGENTS.md`, fold in only the template sections it lacks.
+  - **Keep existing** → leave `./AGENTS.md` untouched, no write.
 - **Drift fingerprint** → if `session-start` was installed, run
   `AGENT_STARTER_FINGERPRINT=1 .agents/hooks/session-start.sh > .agents/.agent-starter.json`
   (mirrors the Claude fingerprint write; `session-start.sh` reads this path back
