@@ -31,16 +31,17 @@ Activate with `/caveman` at session start (or load via skill).
 
 ### Ponytail — lazy senior developer mode (YAGNI enforcer)
 
-| Field       | Value                                                                                                  |
-| ----------- | ------------------------------------------------------------------------------------------------------ |
-| Repo        | `https://github.com/DietrichGebert/ponytail`                                                           |
-| Install cmd | In-session: `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail` |
-| Scope       | User-scoped (Claude Code plugin system; no `--project` flag available)                                 |
-| Default     | ✅ pre-selected                                                                                        |
+| Field            | Value                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
+| Repo             | `https://github.com/DietrichGebert/ponytail`                                                           |
+| Install cmd (CC) | In-session: `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail` |
+| Install cmd (AG) | `agy plugin install https://github.com/DietrichGebert/ponytail`                                        |
+| Scope            | User-scoped both hosts (CC: `~/.claude/`; AG: `~/.gemini/config/plugins/`; no project-scope flag)      |
+| Default          | ✅ pre-selected                                                                                        |
 
-> **Note:** Ponytail uses the Claude Code native plugin system which installs to `~/.claude/`
-> (user scope), not the project `.claude/`. This means it is available across all projects
-> for this user. Inform the user before installing.
+> **Note:** Ponytail installs to the user scope on both hosts (Claude Code → `~/.claude/`,
+> Antigravity → `~/.gemini/config/plugins/`), not the project dir. This means it is available
+> across all projects for this user. Inform the user before installing.
 
 **Post-install — append to `CLAUDE.md`:**
 
@@ -53,14 +54,19 @@ load via the ponytail skill.
 ```
 
 **Post-install instruction to user:**
-Tell the user to run these two commands in a Claude Code session in their project:
 
-```
-/plugin marketplace add DietrichGebert/ponytail
-/plugin install ponytail@ponytail
-```
+- **Claude Code** — run these two commands in a Claude Code session, then restart Claude Code:
 
-Then restart Claude Code.
+  ```
+  /plugin marketplace add DietrichGebert/ponytail
+  /plugin install ponytail@ponytail
+  ```
+
+- **Antigravity** — run this from a shell, then reload Antigravity:
+
+  ```
+  agy plugin install https://github.com/DietrichGebert/ponytail
+  ```
 
 ### Graphify — codebase knowledge graph
 
@@ -105,9 +111,10 @@ for god nodes and community structure. Use it to locate high-impact files before
 
 1. Present all three as a batch (AskUserQuestion multi-select, all pre-checked).
 2. For each selected plugin, apply its install sequence above in order.
-3. Caveman and Graphify are fully automated (shell commands). Ponytail requires user
-   action — print the two `/plugin` commands and tell the user to run them, then
-   continue with the rest of setup.
+3. All three attempt automated install (shell commands): Caveman + Graphify via their
+   tools; Ponytail via `claude plugin` (CC) and/or `agy plugin install <url>` (AG) per
+   selected host, non-fatal. On any failure, print the matching manual command from the
+   Ponytail entry above and continue with the rest of setup.
 4. Check for prerequisites before running:
    - Graphify: verify `uv`, `pipx`, or `pip` is on PATH (priority order: `uv` → `pipx`
      → `pip`); if none found, warn and skip with a note to install `uv` first

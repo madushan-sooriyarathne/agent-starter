@@ -1011,8 +1011,12 @@ Activate with \`/caveman\` at session start (or load via skill)."
         else skip "caveman: install failed — continuing"; fi
         ;;
       ponytail)
-        # Claude-only: no `agy`-native equivalent of `claude plugin marketplace add` is
-        # confirmed yet (see CLAUDE.md), so this only runs when WANT_CLAUDE.
+        # Available for both hosts: Claude Code via `claude plugin marketplace add`,
+        # Antigravity via `agy plugin install <url>` (both user-scoped).
+        PONYTAIL_CTX="# Build discipline
+Apply ponytail (YAGNI) discipline: stop at the first rung of the ladder that holds.
+No speculative abstractions, no boilerplate for later. Activate with \`/ponytail\` or
+load via the ponytail skill."
         if [ "$WANT_CLAUDE" = "1" ]; then
           if command -v claude >/dev/null 2>&1; then
             if claude plugin marketplace add DietrichGebert/ponytail </dev/null 2>/dev/null &&
@@ -1022,12 +1026,18 @@ Activate with \`/caveman\` at session start (or load via skill)."
           else
             skip "ponytail: 'claude' CLI not found — run in a Claude Code session:  /plugin marketplace add DietrichGebert/ponytail  then  /plugin install ponytail@ponytail"
           fi
-          append_contextmd claude "# Build discipline
-Apply ponytail (YAGNI) discipline: stop at the first rung of the ladder that holds.
-No speculative abstractions, no boilerplate for later. Activate with \`/ponytail\` or
-load via the ponytail skill."
+          append_contextmd claude "$PONYTAIL_CTX"
         fi
-        [ "$WANT_AG" = "1" ] && skip "ponytail: Claude Code only — no Antigravity equivalent, skipped"
+        if [ "$WANT_AG" = "1" ]; then
+          if command -v agy >/dev/null 2>&1; then
+            if agy plugin install https://github.com/DietrichGebert/ponytail </dev/null 2>/dev/null; then
+              ok "plugin: ponytail (AG; user-scoped — reload Antigravity)"
+            else skip "ponytail: 'agy plugin install' failed — run manually:  agy plugin install https://github.com/DietrichGebert/ponytail"; fi
+          else
+            skip "ponytail: 'agy' CLI not found — run manually:  agy plugin install https://github.com/DietrichGebert/ponytail"
+          fi
+          append_contextmd ag "$PONYTAIL_CTX"
+        fi
         ;;
       graphify)
         GPM=""

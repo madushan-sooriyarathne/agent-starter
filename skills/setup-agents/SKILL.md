@@ -45,6 +45,7 @@ single host, tell the user to use `/setup-claude` or `/setup-agy`.
    **and** reload Antigravity.
 
 External skills and the Caveman plugin install once per adapter in `ADAPTERS`.
-Ponytail is Claude Code only (no Antigravity equivalent) and installs to the
-Claude side only. Everything else in `references/scan-and-plan.md` — the
-governing principle, gap-analysis mode, and guardrails — applies as written.
+Ponytail installs per selected host (Claude Code via `claude plugin`, Antigravity
+via `agy plugin install <url>`), user-scoped on both. Everything else in
+`references/scan-and-plan.md` — the governing principle, gap-analysis mode, and
+guardrails — applies as written.

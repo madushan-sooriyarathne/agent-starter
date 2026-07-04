@@ -158,11 +158,11 @@ bunx skills add <repo-url> --skill <skill-name> -a claude-code -y
 
 `/setup-agents` also offers three third-party plugins (all pre-selected by default):
 
-| Plugin       | What it does                                                 | Install mechanism                                               |
-| ------------ | ------------------------------------------------------------ | --------------------------------------------------------------- |
-| **Caveman**  | Ultra-compressed communication mode — cuts token noise ~75%  | `bunx skills add JuliusBrussee/caveman -a claude-code -y`       |
-| **Ponytail** | YAGNI enforcer — lazy senior dev discipline                  | `/plugin marketplace add DietrichGebert/ponytail` (user-scoped) |
-| **Graphify** | Codebase knowledge graph — god-node detection, community map | `uv tool install graphifyy && graphify claude install`          |
+| Plugin       | What it does                                                 | Install mechanism                                                                                                                         |
+| ------------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Caveman**  | Ultra-compressed communication mode — cuts token noise ~75%  | `bunx skills add JuliusBrussee/caveman -a claude-code -y`                                                                                 |
+| **Ponytail** | YAGNI enforcer — lazy senior dev discipline                  | CC: `/plugin marketplace add DietrichGebert/ponytail` · AG: `agy plugin install https://github.com/DietrichGebert/ponytail` (user-scoped) |
+| **Graphify** | Codebase knowledge graph — god-node detection, community map | `uv tool install graphifyy && graphify claude install`                                                                                    |
 
 ### CLAUDE.md
 

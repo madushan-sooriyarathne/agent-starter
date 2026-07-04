@@ -59,7 +59,9 @@ Three differences from the Claude path that matter:
   - **Caveman:** run `bunx skills add JuliusBrussee/caveman -a antigravity-cli -y`
     from the project directory → lands in `.agents/skills/`. Then append the caveman
     context snippet from the catalog to `AGENTS.md`.
-  - **Ponytail:** Claude Code only — no Antigravity equivalent. Skip with a note.
+  - **Ponytail:** run `agy plugin install https://github.com/DietrichGebert/ponytail`
+    (user-scoped, lands in `~/.gemini/config/plugins/`). Then append the ponytail build-discipline
+    snippet from the catalog to `AGENTS.md`. Non-fatal on failure — print the manual command.
   - **Graphify:** host-agnostic Python tool — same detect/install as the Claude path
     (`uv` → `pipx` → `pip`), then `graphify install --project`, append the graph-report
     snippet to `AGENTS.md`, and tell the user to run `/graphify .` and commit
