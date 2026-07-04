@@ -16,7 +16,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION="0.4.0"
+VERSION="0.5.0"
 
 # Hooks with a native Antigravity implementation (hooks/antigravity/<name>.sh).
 # The 4 PreToolUse safety guardrails map 1:1. The other 6 needed a redesign
@@ -136,6 +136,20 @@ case "$REPLY_LINE" in
     ;;
 esac
 
+# ========================================================================
+# Step 0.6 — Per-host gap markers
+# ========================================================================
+# Existing host config for a *selected* host trips gap-analysis mode (skill
+# scan-and-plan Step 1): tree OR project-doc is enough (OR, not AND). Only the
+# hosts the user chose are checked. GAP_MODE forks the whole selection flow
+# below: gap remediation (missing/orphan) instead of the fresh-install tiers.
+CLAUDE_GAP=0
+AG_GAP=0
+[ "$WANT_CLAUDE" = "1" ] && { [ -d "$TARGET/.claude" ] || [ -f "$TARGET/CLAUDE.md" ]; } && CLAUDE_GAP=1
+[ "$WANT_AG" = "1" ] && { [ -d "$TARGET/.agents" ] || [ -f "$TARGET/AGENTS.md" ]; } && AG_GAP=1
+GAP_MODE=0
+{ [ "$CLAUDE_GAP" = "1" ] || [ "$AG_GAP" = "1" ]; } && GAP_MODE=1
+
 # ---- mechanical detection helpers (no node_modules/.git/vendor/build noise) ----
 PRUNE_EXPR=(-path '*/node_modules/*' -o -path '*/.git/*' -o -path '*/vendor/*' -o -path '*/dist/*' -o -path '*/build/*' -o -path '*/.next/*')
 find_any() { find "$TARGET" -maxdepth 6 \( "${PRUNE_EXPR[@]}" \) -prune -o -name "$1" -print -quit 2>/dev/null; }
@@ -156,7 +170,6 @@ HAS_AUTH=0
 HAS_BIOME=0
 HAS_TS=0
 HAS_DEPLOY=0
-HAS_CLAUDE=0
 HAS_HOSPITALITY=0
 HAS_REACT=0
 HAS_HONO=0
@@ -205,7 +218,6 @@ ls "$TARGET"/sanity.config.* >/dev/null 2>&1 && HAS_SANITY=1
 }
 [ -f "$TARGET/tsconfig.json" ] && HAS_TS=1
 { [ -f "$TARGET/bunfig.toml" ] || [ -f "$TARGET/bun.lockb" ]; } && HAS_BUN=1
-[ -d "$TARGET/.claude" ] && HAS_CLAUDE=1
 
 if [ "$HAS_PKG" = "1" ]; then
   PKG="$(cat "$TARGET/package.json" 2>/dev/null || printf '')"
@@ -325,7 +337,12 @@ row "Typecheck:" "$tc"
 row "Pkg mgr:" "$pm"
 row "Git:" "$git_s"
 row "CI:" "$ci"
-[ "$HAS_CLAUDE" = "1" ] && say "  ${YELLOW}Existing .claude/ found — gap-analysis mode (missing items offered, stale ones flagged for removal).${RESET}"
+if [ "$GAP_MODE" = "1" ]; then
+  gap_hosts=""
+  [ "$CLAUDE_GAP" = "1" ] && gap_hosts="Claude Code"
+  [ "$AG_GAP" = "1" ] && gap_hosts="${gap_hosts:+$gap_hosts + }Antigravity"
+  say "  ${YELLOW}Existing config found ($gap_hosts) — gap-analysis mode: missing items offered, orphans flagged for removal.${RESET}"
+fi
 
 # Empty project → minimal baseline, no further questions.
 if [ ${#detectedStack[@]} -eq 0 ] && [ "$HAS_PKG" != "1" ] && ! has_any '*.go' && ! has_any '*.py' && ! has_any '*.rb'; then
@@ -336,72 +353,83 @@ if [ ${#detectedStack[@]} -eq 0 ] && [ "$HAS_PKG" != "1" ] && ! has_any '*.go' &
   sel_skills=()
   sel_plugins=()
   WANT_CLAUDEMD=1
-  EXIST_AGENTS=()
-  EXIST_RULES=()
-  EXIST_HOOKS=()
-  REMOVE_AGENTS=()
-  REMOVE_RULES=()
-  REMOVE_HOOKS=()
   MINIMAL_BASELINE=1
   TIER="minimal"
 else
   MINIMAL_BASELINE=0
-  # ---- Step 1.5 — confirm stack ----
-  TIER=""
+  # ---- Step 1.5 — confirm stack (both forks) ----
   if [ "$INTERACTIVE" = "1" ]; then
     printf "\nLooks right? [Y]es / [e]dit (correct via per-item toggles): "
     ask_line
     case "$REPLY_LINE" in e | E | edit | EDIT | n | N | no | NO)
-      TIER="letmecheck"
+      STACK_EDIT=1
       say "  ${DIM}OK — use the per-item toggles below to correct.${RESET}"
       ;;
     esac
   fi
-  # ---- Step 1.6 — pick install tier (skip if edit forced letmecheck) ----
-  if [ -z "$TIER" ]; then
-    head "Install tier"
-    say "  1) Minimal   — CLAUDE.md + 4 safety hooks only"
-    say "  2) Standard  — recommended picks from the scan ${DIM}(default)${RESET}"
-    say "  3) Full      — everything in every category + all 3 plugins"
-    say "  4) Let me check — choose each category by hand"
-    printf "> "
-    ask_line
-    case "$REPLY_LINE" in
-      1 | minimal) TIER="minimal" ;;
-      "" | 2 | standard) TIER="standard" ;;
-      3 | full) TIER="full" ;;
-      4 | check | "let me check") TIER="letmecheck" ;;
-      *)
-        TIER="standard"
-        say "  ${DIM}Unrecognized — using Standard.${RESET}"
-        ;;
-    esac
-  fi
-  if [ "$TIER" = "minimal" ]; then
-    sel_agents=()
-    sel_rules=()
-    sel_hooks=(block-dangerous-commands scan-secrets protect-files warn-large-files)
-    sel_skills=()
-    sel_plugins=()
-    WANT_CLAUDEMD=1
-    [ -f "$TARGET/CLAUDE.md" ] && WANT_CLAUDEMD=0 # crucial: don't overwrite existing without asking
-    if [ -f "$TARGET/CLAUDE.md" ] && [ "$INTERACTIVE" = "1" ]; then
-      printf "  CLAUDE.md exists. Overwrite with template? [y/N]: "
+  if [ "$GAP_MODE" = "1" ]; then
+    # ---- Step 1.7 — gap-analysis fork: no tiers. ----
+    TIER="gap"
+    WANT_CLAUDEMD=0 # gap reconciles components; never touches an existing project doc.
+  else
+    # ---- Step 1.6 — pick install tier (fresh install only) ----
+    TIER=""
+    [ "${STACK_EDIT:-0}" = "1" ] && TIER="letmecheck"
+    if [ -z "$TIER" ]; then
+      head "Install tier"
+      say "  1) Minimal   — CLAUDE.md + 4 safety hooks only"
+      say "  2) Standard  — recommended picks from the scan ${DIM}(default)${RESET}"
+      say "  3) Full      — everything in every category + all 3 plugins"
+      say "  4) Let me check — choose each category by hand"
+      printf "> "
       ask_line
-      case "$REPLY_LINE" in y | Y | yes | YES) WANT_CLAUDEMD=1 ;; esac
+      case "$REPLY_LINE" in
+        1 | minimal) TIER="minimal" ;;
+        "" | 2 | standard) TIER="standard" ;;
+        3 | full) TIER="full" ;;
+        4 | check | "let me check") TIER="letmecheck" ;;
+        *)
+          TIER="standard"
+          say "  ${DIM}Unrecognized — using Standard.${RESET}"
+          ;;
+      esac
     fi
-    MINIMAL_BASELINE=1
+    if [ "$TIER" = "minimal" ]; then
+      sel_agents=()
+      sel_rules=()
+      sel_hooks=(block-dangerous-commands scan-secrets protect-files warn-large-files)
+      sel_skills=()
+      sel_plugins=()
+      WANT_CLAUDEMD=1
+      [ -f "$TARGET/CLAUDE.md" ] && WANT_CLAUDEMD=0 # crucial: don't overwrite existing without asking
+      if [ -f "$TARGET/CLAUDE.md" ] && [ "$INTERACTIVE" = "1" ]; then
+        printf "  CLAUDE.md exists. Overwrite with template? [y/N]: "
+        ask_line
+        case "$REPLY_LINE" in y | Y | yes | YES) WANT_CLAUDEMD=1 ;; esac
+      fi
+      MINIMAL_BASELINE=1
+    fi
   fi
 fi
 
-# Existing managed files on disk (for gap-analysis removal diffing).
-EXIST_AGENTS=()
-EXIST_RULES=()
-EXIST_HOOKS=()
-if [ "$HAS_CLAUDE" = "1" ]; then
-  for f in "$TARGET"/.claude/agents/*.md; do [ -f "$f" ] && EXIST_AGENTS+=("$(basename "$f" .md)"); done
-  for f in "$TARGET"/.claude/rules/*.md; do [ -f "$f" ] && EXIST_RULES+=("$(basename "$f" .md)"); done
-  for f in "$TARGET"/.claude/hooks/*.sh; do [ -f "$f" ] && EXIST_HOOKS+=("$(basename "$f" .sh)"); done
+# Existing managed files on disk, per host (gap-analysis missing/orphan diffing).
+# Claude: 1:1 file names. Antigravity: agents live as skills/<name>/SKILL.md,
+# rules/hooks match Claude's naming. Only read a host in gap mode.
+EXIST_CL_AGENTS=()
+EXIST_CL_RULES=()
+EXIST_CL_HOOKS=()
+if [ "$CLAUDE_GAP" = "1" ]; then
+  for f in "$TARGET"/.claude/agents/*.md; do [ -f "$f" ] && EXIST_CL_AGENTS+=("$(basename "$f" .md)"); done
+  for f in "$TARGET"/.claude/rules/*.md; do [ -f "$f" ] && EXIST_CL_RULES+=("$(basename "$f" .md)"); done
+  for f in "$TARGET"/.claude/hooks/*.sh; do [ -f "$f" ] && EXIST_CL_HOOKS+=("$(basename "$f" .sh)"); done
+fi
+EXIST_AG_AGENTS=()
+EXIST_AG_RULES=()
+EXIST_AG_HOOKS=()
+if [ "$AG_GAP" = "1" ]; then
+  for d in "$TARGET"/.agents/skills/*/; do [ -f "${d}SKILL.md" ] && EXIST_AG_AGENTS+=("$(basename "$d")"); done
+  for f in "$TARGET"/.agents/rules/*.md; do [ -f "$f" ] && EXIST_AG_RULES+=("$(basename "$f" .md)"); done
+  for f in "$TARGET"/.agents/hooks/*.sh; do [ -f "$f" ] && EXIST_AG_HOOKS+=("$(basename "$f" .sh)"); done
 fi
 
 # ========================================================================
@@ -472,82 +500,157 @@ copy_managed() { # copy_managed <src> <dest> <label> ; returns 0 if a fresh copy
 }
 
 # ========================================================================
-# Step 2 — Category selection (skipped entirely for the empty-project baseline)
+# Step 2 — Catalogs + selection
 # ========================================================================
-select_all() {
+# build_catalogs sets the six catalogs (names/descs/defaults) once, applying
+# every scan-based "Recommend when" rule to the defaults. rec_<cat> derives the
+# recommended name list (default==1) — the single source of truth reused by the
+# fresh tiers (select_all) AND gap-analysis missing/orphan diffing (run_gap_flow).
+build_catalogs() {
+  local i
   # --- Agents ---
-  names=(code-reviewer security-reviewer performance-reviewer sanity-reviewer doc-reviewer frontend-designer pr-test-analyzer silent-failure-hunter)
-  descs=("TS/Next/Hono correctness" "auth, API, env, injection" "re-renders, N+1, bundle" "Sanity schema & GROQ" "docs, README, CLAUDE.md" "tokens-first UI design" "test quality, not existence" "swallowed errors, fake success")
-  defaults=(1 0 0 0 1 0 0 1)
-  { [ "$HAS_AUTH" = "1" ] || [ "$HAS_BACKEND" = "1" ]; } && defaults[1]=1
-  { [ "$HAS_NEXT" = "1" ] || [ "$HAS_DRIZZLE" = "1" ]; } && defaults[2]=1
-  [ "$HAS_SANITY" = "1" ] && defaults[3]=1
-  [ "$HAS_FRONTEND" = "1" ] && defaults[5]=1
-  [ "$HAS_TESTS" = "1" ] && defaults[6]=1
+  cat_agent_names=(code-reviewer security-reviewer performance-reviewer sanity-reviewer doc-reviewer frontend-designer pr-test-analyzer silent-failure-hunter)
+  cat_agent_descs=("TS/Next/Hono correctness" "auth, API, env, injection" "re-renders, N+1, bundle" "Sanity schema & GROQ" "docs, README, CLAUDE.md" "tokens-first UI design" "test quality, not existence" "swallowed errors, fake success")
+  cat_agent_defaults=(1 0 0 0 1 0 0 1)
+  { [ "$HAS_AUTH" = "1" ] || [ "$HAS_BACKEND" = "1" ]; } && cat_agent_defaults[1]=1
+  { [ "$HAS_NEXT" = "1" ] || [ "$HAS_DRIZZLE" = "1" ]; } && cat_agent_defaults[2]=1
+  [ "$HAS_SANITY" = "1" ] && cat_agent_defaults[3]=1
+  [ "$HAS_FRONTEND" = "1" ] && cat_agent_defaults[5]=1
+  [ "$HAS_TESTS" = "1" ] && cat_agent_defaults[6]=1
+
+  # --- Rules ---
+  cat_rule_names=(typescript git-workflow nextjs monorepo react hono bun golang rust tailwind code-quality database error-handling frontend security testing)
+  cat_rule_descs=("no any, strict tsconfig" "commits, branches, no force-push" "App Router, server/client" "Turbo/pnpm/nx boundaries" "composition, stable keys" "route structure, onError" "native APIs, bun:test" "error wrapping, goroutines" "unsafe discipline, ownership" "v4 @theme, cn() merging" "anti-defaults, naming" "migration discipline" "typed errors, no swallow" "tokens, a11y, perf" "input validation, no raw SQL" "behavior over implementation")
+  cat_rule_defaults=(0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0)
+  [ "$HAS_TS" = "1" ] && cat_rule_defaults[0]=1
+  [ "$HAS_NEXT" = "1" ] && cat_rule_defaults[2]=1
+  [ "$HAS_MONOREPO" = "1" ] && cat_rule_defaults[3]=1
+  [ "$HAS_REACT" = "1" ] && cat_rule_defaults[4]=1
+  [ "$HAS_HONO" = "1" ] && cat_rule_defaults[5]=1
+  [ "$HAS_BUN" = "1" ] && cat_rule_defaults[6]=1
+  [ "$HAS_GO" = "1" ] && cat_rule_defaults[7]=1
+  [ "$HAS_RUST" = "1" ] && cat_rule_defaults[8]=1
+  [ "$HAS_TAILWIND" = "1" ] && cat_rule_defaults[9]=1
+  [ "$HAS_DB" = "1" ] && cat_rule_defaults[11]=1
+  [ "$HAS_BACKEND" = "1" ] && cat_rule_defaults[12]=1
+  [ "$HAS_FRONTEND" = "1" ] && cat_rule_defaults[13]=1
+  { [ "$HAS_BACKEND" = "1" ] || [ "$HAS_AUTH" = "1" ]; } && cat_rule_defaults[14]=1
+  [ "$HAS_TESTS" = "1" ] && cat_rule_defaults[15]=1
+
+  # --- Hooks ---
+  cat_hook_names=(block-dangerous-commands scan-secrets protect-files warn-large-files format-on-save auto-test typecheck-on-stop lint-on-stop notify session-start)
+  cat_hook_descs=("block rm -rf /, DROP TABLE, --force" "block hardcoded secrets" "block edits to .env/keys/lockfiles" "block writes to build/binary dirs" "biome check --write on .ts/.tsx" "run matching test after every edit (needs fast suite)" "typecheck once per turn on Stop" "lint once per turn on Stop" "OS notification on attention-needed" "branch+dirty context, drift nudge")
+  cat_hook_defaults=(1 1 1 1 0 0 0 0 0 1)
+  [ "$HAS_BIOME" = "1" ] && cat_hook_defaults[4]=1
+  [ "$HAS_TS" = "1" ] && cat_hook_defaults[6]=1
+  [ "$HAS_LINTER" = "1" ] && cat_hook_defaults[7]=1
+
+  # --- Third-party plugins (behavior plugins; all pre-marked) ---
+  cat_plugin_names=(caveman ponytail graphify)
+  cat_plugin_descs=("ultra-compressed replies (bunx)" "lazy/YAGNI mode (claude plugin)" "codebase knowledge graph (uv/pipx/pip)")
+  cat_plugin_defaults=(1 1 1)
+
+  # --- Skills (GitHub repos via `bunx skills add <repo> --skill <name>`) ---
+  cat_skill_names=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator)
+  cat_skill_repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/next-pro-seo https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills)
+  cat_skill_skillnames=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator)
+  cat_skill_descs=("UI / component design" "web app testing" "Next.js SEO/GEO (your repo, needs gh auth)" "brand voice & guidelines" "build MCP servers" "author new skills")
+  cat_skill_defaults=(0 1 0 0 0 0)
+  [ "$HAS_NEXT" = "1" ] && {
+    cat_skill_defaults[0]=1
+    cat_skill_defaults[2]=1
+  }
+  [ "$HAS_HOSPITALITY" = "1" ] && cat_skill_defaults[3]=1
+
+  # Install-step lookup arrays (name -> repo/skillname).
+  skills_names=("${cat_skill_names[@]}")
+  skills_repos=("${cat_skill_repos[@]}")
+  skills_skillnames=("${cat_skill_skillnames[@]}")
+
+  # Recommended name lists (default==1). Gap-analysis diffs against these.
+  rec_agents=()
+  for ((i = 0; i < ${#cat_agent_names[@]}; i++)); do [ "${cat_agent_defaults[$i]}" = "1" ] && rec_agents+=("${cat_agent_names[$i]}"); done
+  rec_rules=()
+  for ((i = 0; i < ${#cat_rule_names[@]}; i++)); do [ "${cat_rule_defaults[$i]}" = "1" ] && rec_rules+=("${cat_rule_names[$i]}"); done
+  rec_hooks=()
+  for ((i = 0; i < ${#cat_hook_names[@]}; i++)); do [ "${cat_hook_defaults[$i]}" = "1" ] && rec_hooks+=("${cat_hook_names[$i]}"); done
+}
+
+load_cat() { # load_cat <agent|rule|hook|plugin|skill> → names/descs/defaults
+  case "$1" in
+    agent)
+      names=("${cat_agent_names[@]}")
+      descs=("${cat_agent_descs[@]}")
+      defaults=("${cat_agent_defaults[@]}")
+      ;;
+    rule)
+      names=("${cat_rule_names[@]}")
+      descs=("${cat_rule_descs[@]}")
+      defaults=("${cat_rule_defaults[@]}")
+      ;;
+    hook)
+      names=("${cat_hook_names[@]}")
+      descs=("${cat_hook_descs[@]}")
+      defaults=("${cat_hook_defaults[@]}")
+      ;;
+    plugin)
+      names=("${cat_plugin_names[@]}")
+      descs=("${cat_plugin_descs[@]}")
+      defaults=("${cat_plugin_defaults[@]}")
+      ;;
+    skill)
+      names=("${cat_skill_names[@]}")
+      descs=("${cat_skill_descs[@]}")
+      defaults=("${cat_skill_defaults[@]}")
+      ;;
+  esac
+}
+
+scope_cat() { # scope_cat <agent|rule|hook> <name...> → names/descs/defaults, all pre-marked
+  load_cat "$1"
+  shift
+  local all_n=("${names[@]}") all_d=("${descs[@]}")
+  names=()
+  descs=()
+  defaults=()
+  local w i
+  for w in "$@"; do
+    for ((i = 0; i < ${#all_n[@]}; i++)); do
+      if [ "${all_n[$i]}" = "$w" ]; then
+        names+=("$w")
+        descs+=("${all_d[$i]}")
+        defaults+=(1)
+        break
+      fi
+    done
+  done
+}
+
+select_all() {
+  load_cat agent
   prompt_category "Agents"
   sel_agents=()
   [ ${#selected[@]} -gt 0 ] && sel_agents=("${selected[@]}")
 
-  # --- Rules ---
-  names=(typescript git-workflow nextjs monorepo react hono bun golang rust tailwind code-quality database error-handling frontend security testing)
-  descs=("no any, strict tsconfig" "commits, branches, no force-push" "App Router, server/client" "Turbo/pnpm/nx boundaries" "composition, stable keys" "route structure, onError" "native APIs, bun:test" "error wrapping, goroutines" "unsafe discipline, ownership" "v4 @theme, cn() merging" "anti-defaults, naming" "migration discipline" "typed errors, no swallow" "tokens, a11y, perf" "input validation, no raw SQL" "behavior over implementation")
-  defaults=(0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0)
-  [ "$HAS_TS" = "1" ] && defaults[0]=1
-  [ "$HAS_NEXT" = "1" ] && defaults[2]=1
-  [ "$HAS_MONOREPO" = "1" ] && defaults[3]=1
-  [ "$HAS_REACT" = "1" ] && defaults[4]=1
-  [ "$HAS_HONO" = "1" ] && defaults[5]=1
-  [ "$HAS_BUN" = "1" ] && defaults[6]=1
-  [ "$HAS_GO" = "1" ] && defaults[7]=1
-  [ "$HAS_RUST" = "1" ] && defaults[8]=1
-  [ "$HAS_TAILWIND" = "1" ] && defaults[9]=1
-  [ "$HAS_DB" = "1" ] && defaults[11]=1
-  [ "$HAS_BACKEND" = "1" ] && defaults[12]=1
-  [ "$HAS_FRONTEND" = "1" ] && defaults[13]=1
-  { [ "$HAS_BACKEND" = "1" ] || [ "$HAS_AUTH" = "1" ]; } && defaults[14]=1
-  [ "$HAS_TESTS" = "1" ] && defaults[15]=1
+  load_cat rule
   prompt_category "Rules"
   sel_rules=()
   [ ${#selected[@]} -gt 0 ] && sel_rules=("${selected[@]}")
 
-  # --- Hooks ---
-  names=(block-dangerous-commands scan-secrets protect-files warn-large-files format-on-save auto-test typecheck-on-stop lint-on-stop notify session-start)
-  descs=("block rm -rf /, DROP TABLE, --force" "block hardcoded secrets" "block edits to .env/keys/lockfiles" "block writes to build/binary dirs" "biome check --write on .ts/.tsx" "run matching test after every edit (needs fast suite)" "typecheck once per turn on Stop" "lint once per turn on Stop" "OS notification on attention-needed" "branch+dirty context, drift nudge")
-  defaults=(1 1 1 1 0 0 0 0 0 1)
-  [ "$HAS_BIOME" = "1" ] && defaults[4]=1
-  [ "$HAS_TS" = "1" ] && defaults[6]=1
-  [ "$HAS_LINTER" = "1" ] && defaults[7]=1
+  load_cat hook
   prompt_category "Hooks"
   sel_hooks=()
   [ ${#selected[@]} -gt 0 ] && sel_hooks=("${selected[@]}")
 
-  # --- Third-party plugins (behavior plugins; all pre-marked) ---
-  names=(caveman ponytail graphify)
-  descs=("ultra-compressed replies (bunx)" "lazy/YAGNI mode (claude plugin)" "codebase knowledge graph (uv/pipx/pip)")
-  defaults=(1 1 1)
+  load_cat plugin
   prompt_category "Third-party plugins"
   sel_plugins=()
   [ ${#selected[@]} -gt 0 ] && sel_plugins=("${selected[@]}")
 
-  # --- Skills (GitHub repos via `bunx skills add <repo> --skill <name>`) ---
-  # Parallel arrays: names[] (display) / repos[] (github URL) / skillnames[] / descs[] / defaults[]
-  names=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator)
-  repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/next-pro-seo https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills)
-  skillnames=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator)
-  descs=("UI / component design" "web app testing" "Next.js SEO/GEO (your repo, needs gh auth)" "brand voice & guidelines" "build MCP servers" "author new skills")
-  defaults=(0 1 0 0 0 0)
-  [ "$HAS_NEXT" = "1" ] && {
-    defaults[0]=1
-    defaults[2]=1
-  }
-  [ "$HAS_HOSPITALITY" = "1" ] && defaults[3]=1
+  load_cat skill
   prompt_category "Skills (bunx skills add <repo> --skill <name>)"
   sel_skills=()
   [ ${#selected[@]} -gt 0 ] && sel_skills=("${selected[@]}")
-  # Keep skills catalog arrays around for the install step's name->repo lookup.
-  skills_names=("${names[@]}")
-  skills_repos=("${repos[@]}")
-  skills_skillnames=("${skillnames[@]}")
 
   # --- CLAUDE.md ---
   head "CLAUDE.md template"
@@ -567,23 +670,237 @@ select_all() {
   fi
 }
 
-print_plan() {
-  REMOVE_AGENTS=()
-  for x in "${EXIST_AGENTS[@]:-}"; do
-    [ -n "$x" ] || continue
-    contains "$x" "${sel_agents[@]:-}" || REMOVE_AGENTS+=("$x")
+# ========================================================================
+# Step 1.7 — Gap-analysis flow (existing host config → reconcile, no tiers)
+# ========================================================================
+# Builds the install selection (missing catalog items) and REMOVE_* lists
+# (orphans, per host). Scope is agents/rules/hooks — the deterministic managed
+# core. ponytail: skills/plugins are not gap-diffed (external skills are
+# user-added; global plugins aren't per-project detectable) — re-run a fresh
+# install to add those. Sets GAP_INSYNC=1 when nothing needs doing.
+run_gap_flow() {
+  GAP_INSYNC=0
+  local n miss
+
+  # --- Missing: rec_* absent from at least one selected host. copy_managed
+  # skips existing files, so a single install pass covers both hosts. ---
+  MISS_AGENTS=()
+  MISS_RULES=()
+  MISS_HOOKS=()
+  for n in "${rec_agents[@]:-}"; do
+    [ -n "$n" ] || continue
+    miss=0
+    [ "$WANT_CLAUDE" = "1" ] && ! contains "$n" "${EXIST_CL_AGENTS[@]:-}" && miss=1
+    [ "$WANT_AG" = "1" ] && ! contains "$n" "${EXIST_AG_AGENTS[@]:-}" && miss=1
+    [ "$miss" = "1" ] && MISS_AGENTS+=("$n")
   done
-  REMOVE_RULES=()
-  for x in "${EXIST_RULES[@]:-}"; do
-    [ -n "$x" ] || continue
-    contains "$x" "${sel_rules[@]:-}" || REMOVE_RULES+=("$x")
+  for n in "${rec_rules[@]:-}"; do
+    [ -n "$n" ] || continue
+    miss=0
+    [ "$WANT_CLAUDE" = "1" ] && ! contains "$n" "${EXIST_CL_RULES[@]:-}" && miss=1
+    [ "$WANT_AG" = "1" ] && ! contains "$n" "${EXIST_AG_RULES[@]:-}" && miss=1
+    [ "$miss" = "1" ] && MISS_RULES+=("$n")
   done
-  REMOVE_HOOKS=()
-  for x in "${EXIST_HOOKS[@]:-}"; do
-    [ -n "$x" ] || continue
-    contains "$x" "${sel_hooks[@]:-}" || REMOVE_HOOKS+=("$x")
+  for n in "${rec_hooks[@]:-}"; do
+    [ -n "$n" ] || continue
+    miss=0
+    [ "$WANT_CLAUDE" = "1" ] && ! contains "$n" "${EXIST_CL_HOOKS[@]:-}" && miss=1
+    # A hook AG can't run isn't "missing" for AG.
+    if [ "$WANT_AG" = "1" ]; then
+      case " $AG_SUPPORTED_HOOKS " in *" $n "*) contains "$n" "${EXIST_AG_HOOKS[@]:-}" || miss=1 ;; esac
+    fi
+    [ "$miss" = "1" ] && MISS_HOOKS+=("$n")
   done
 
+  # --- Orphans (per host): on-disk catalog items no longer recommended. Only
+  # catalog members are flagged — unrecognized files are never auto-deleted. ---
+  ORPH_CL_AGENTS=()
+  ORPH_CL_RULES=()
+  ORPH_CL_HOOKS=()
+  ORPH_AG_AGENTS=()
+  ORPH_AG_RULES=()
+  ORPH_AG_HOOKS=()
+  if [ "$WANT_CLAUDE" = "1" ]; then
+    for n in "${EXIST_CL_AGENTS[@]:-}"; do
+      [ -n "$n" ] || continue
+      contains "$n" "${cat_agent_names[@]}" || continue
+      contains "$n" "${rec_agents[@]:-}" || ORPH_CL_AGENTS+=("$n")
+    done
+    for n in "${EXIST_CL_RULES[@]:-}"; do
+      [ -n "$n" ] || continue
+      contains "$n" "${cat_rule_names[@]}" || continue
+      contains "$n" "${rec_rules[@]:-}" || ORPH_CL_RULES+=("$n")
+    done
+    for n in "${EXIST_CL_HOOKS[@]:-}"; do
+      [ -n "$n" ] || continue
+      contains "$n" "${cat_hook_names[@]}" || continue
+      contains "$n" "${rec_hooks[@]:-}" || ORPH_CL_HOOKS+=("$n")
+    done
+  fi
+  if [ "$WANT_AG" = "1" ]; then
+    for n in "${EXIST_AG_AGENTS[@]:-}"; do
+      [ -n "$n" ] || continue
+      contains "$n" "${cat_agent_names[@]}" || continue # external/user skills ignored
+      contains "$n" "${rec_agents[@]:-}" || ORPH_AG_AGENTS+=("$n")
+    done
+    for n in "${EXIST_AG_RULES[@]:-}"; do
+      [ -n "$n" ] || continue
+      contains "$n" "${cat_rule_names[@]}" || continue
+      contains "$n" "${rec_rules[@]:-}" || ORPH_AG_RULES+=("$n")
+    done
+    for n in "${EXIST_AG_HOOKS[@]:-}"; do
+      [ -n "$n" ] || continue
+      contains "$n" "${cat_hook_names[@]}" || continue
+      contains "$n" "${rec_hooks[@]:-}" || ORPH_AG_HOOKS+=("$n")
+    done
+  fi
+
+  local total_miss=$((${#MISS_AGENTS[@]} + ${#MISS_RULES[@]} + ${#MISS_HOOKS[@]}))
+  local n_cl_orph=$((${#ORPH_CL_AGENTS[@]} + ${#ORPH_CL_RULES[@]} + ${#ORPH_CL_HOOKS[@]}))
+  local n_ag_orph=$((${#ORPH_AG_AGENTS[@]} + ${#ORPH_AG_RULES[@]} + ${#ORPH_AG_HOOKS[@]}))
+  local total_orph=$((n_cl_orph + n_ag_orph))
+
+  local gt=""
+  [ "$CLAUDE_GAP" = "1" ] && gt="Claude Code"
+  [ "$AG_GAP" = "1" ] && gt="${gt:+$gt + }Antigravity"
+  head "Gap analysis (Targets: ${gt:-—})"
+
+  if [ "$total_miss" = "0" ] && [ "$total_orph" = "0" ]; then
+    say "  ${GREEN}In sync${RESET} — setup already matches the current stack. Nothing to do."
+    GAP_INSYNC=1
+    sel_agents=()
+    sel_rules=()
+    sel_hooks=()
+    sel_plugins=()
+    sel_skills=()
+    return 0
+  fi
+
+  if [ "$total_miss" -gt 0 ]; then
+    say "  ${BOLD}Missing${RESET} — catalog recommends, not installed:"
+    for n in "${MISS_AGENTS[@]:-}"; do [ -n "$n" ] && say "    $n ${DIM}(agent)${RESET}"; done
+    for n in "${MISS_RULES[@]:-}"; do [ -n "$n" ] && say "    $n ${DIM}(rule)${RESET}"; done
+    for n in "${MISS_HOOKS[@]:-}"; do [ -n "$n" ] && say "    $n ${DIM}(hook)${RESET}"; done
+  fi
+  if [ "$total_orph" -gt 0 ]; then
+    say "  ${BOLD}Orphan${RESET} — installed, no longer justified by scan:"
+    if [ "$WANT_CLAUDE" = "1" ] && [ "$n_cl_orph" -gt 0 ]; then
+      say "    ${DIM}Claude Code:${RESET}"
+      for n in "${ORPH_CL_AGENTS[@]:-}"; do [ -n "$n" ] && say "      $n (agent)"; done
+      for n in "${ORPH_CL_RULES[@]:-}"; do [ -n "$n" ] && say "      $n (rule)"; done
+      for n in "${ORPH_CL_HOOKS[@]:-}"; do [ -n "$n" ] && say "      $n (hook)"; done
+    fi
+    if [ "$WANT_AG" = "1" ] && [ "$n_ag_orph" -gt 0 ]; then
+      say "    ${DIM}Antigravity:${RESET}"
+      for n in "${ORPH_AG_AGENTS[@]:-}"; do [ -n "$n" ] && say "      $n (agent/skill)"; done
+      for n in "${ORPH_AG_RULES[@]:-}"; do [ -n "$n" ] && say "      $n (rule)"; done
+      for n in "${ORPH_AG_HOOKS[@]:-}"; do [ -n "$n" ] && say "      $n (hook)"; done
+    fi
+  fi
+
+  sel_agents=()
+  sel_rules=()
+  sel_hooks=()
+  sel_plugins=()
+  sel_skills=()
+
+  # Non-interactive: install all missing (safe — copy_managed skips existing),
+  # never auto-remove orphans (destructive).
+  if [ "$INTERACTIVE" != "1" ]; then
+    [ ${#MISS_AGENTS[@]} -gt 0 ] && sel_agents=("${MISS_AGENTS[@]}")
+    [ ${#MISS_RULES[@]} -gt 0 ] && sel_rules=("${MISS_RULES[@]}")
+    [ ${#MISS_HOOKS[@]} -gt 0 ] && sel_hooks=("${MISS_HOOKS[@]}")
+    return 0
+  fi
+
+  # Round 1 — missing.
+  if [ "$total_miss" -gt 0 ]; then
+    printf "\nInstall missing? [A]ll ${DIM}(recommended)${RESET} / [c]hoose per category / [s]kip: "
+    ask_line
+    case "$REPLY_LINE" in
+      c | C | choose | CHOOSE)
+        [ ${#MISS_AGENTS[@]} -gt 0 ] && {
+          scope_cat agent "${MISS_AGENTS[@]}"
+          prompt_category "Missing agents"
+          [ ${#selected[@]} -gt 0 ] && sel_agents=("${selected[@]}")
+        }
+        [ ${#MISS_RULES[@]} -gt 0 ] && {
+          scope_cat rule "${MISS_RULES[@]}"
+          prompt_category "Missing rules"
+          [ ${#selected[@]} -gt 0 ] && sel_rules=("${selected[@]}")
+        }
+        [ ${#MISS_HOOKS[@]} -gt 0 ] && {
+          scope_cat hook "${MISS_HOOKS[@]}"
+          prompt_category "Missing hooks"
+          [ ${#selected[@]} -gt 0 ] && sel_hooks=("${selected[@]}")
+        }
+        ;;
+      s | S | skip | SKIP) : ;;
+      *)
+        [ ${#MISS_AGENTS[@]} -gt 0 ] && sel_agents=("${MISS_AGENTS[@]}")
+        [ ${#MISS_RULES[@]} -gt 0 ] && sel_rules=("${MISS_RULES[@]}")
+        [ ${#MISS_HOOKS[@]} -gt 0 ] && sel_hooks=("${MISS_HOOKS[@]}")
+        ;;
+    esac
+  fi
+
+  # Round 2 — orphans (removal is destructive: default is keep).
+  if [ "$total_orph" -gt 0 ]; then
+    printf "\nRemove orphans? [A]ll / [c]hoose per category / [k]eep ${DIM}(default keep)${RESET}: "
+    ask_line
+    case "$REPLY_LINE" in
+      a | A | all | ALL)
+        [ ${#ORPH_CL_AGENTS[@]} -gt 0 ] && REMOVE_CL_AGENTS=("${ORPH_CL_AGENTS[@]}")
+        [ ${#ORPH_CL_RULES[@]} -gt 0 ] && REMOVE_CL_RULES=("${ORPH_CL_RULES[@]}")
+        [ ${#ORPH_CL_HOOKS[@]} -gt 0 ] && REMOVE_CL_HOOKS=("${ORPH_CL_HOOKS[@]}")
+        [ ${#ORPH_AG_AGENTS[@]} -gt 0 ] && REMOVE_AG_AGENTS=("${ORPH_AG_AGENTS[@]}")
+        [ ${#ORPH_AG_RULES[@]} -gt 0 ] && REMOVE_AG_RULES=("${ORPH_AG_RULES[@]}")
+        [ ${#ORPH_AG_HOOKS[@]} -gt 0 ] && REMOVE_AG_HOOKS=("${ORPH_AG_HOOKS[@]}")
+        ;;
+      c | C | choose | CHOOSE)
+        # Per host+category, only where orphans exist. Selecting = mark for removal.
+        if [ "$WANT_CLAUDE" = "1" ]; then
+          [ ${#ORPH_CL_AGENTS[@]} -gt 0 ] && {
+            scope_cat agent "${ORPH_CL_AGENTS[@]}"
+            prompt_category "Remove Claude agents"
+            [ ${#selected[@]} -gt 0 ] && REMOVE_CL_AGENTS=("${selected[@]}")
+          }
+          [ ${#ORPH_CL_RULES[@]} -gt 0 ] && {
+            scope_cat rule "${ORPH_CL_RULES[@]}"
+            prompt_category "Remove Claude rules"
+            [ ${#selected[@]} -gt 0 ] && REMOVE_CL_RULES=("${selected[@]}")
+          }
+          [ ${#ORPH_CL_HOOKS[@]} -gt 0 ] && {
+            scope_cat hook "${ORPH_CL_HOOKS[@]}"
+            prompt_category "Remove Claude hooks"
+            [ ${#selected[@]} -gt 0 ] && REMOVE_CL_HOOKS=("${selected[@]}")
+          }
+        fi
+        if [ "$WANT_AG" = "1" ]; then
+          [ ${#ORPH_AG_AGENTS[@]} -gt 0 ] && {
+            scope_cat agent "${ORPH_AG_AGENTS[@]}"
+            prompt_category "Remove Antigravity agents"
+            [ ${#selected[@]} -gt 0 ] && REMOVE_AG_AGENTS=("${selected[@]}")
+          }
+          [ ${#ORPH_AG_RULES[@]} -gt 0 ] && {
+            scope_cat rule "${ORPH_AG_RULES[@]}"
+            prompt_category "Remove Antigravity rules"
+            [ ${#selected[@]} -gt 0 ] && REMOVE_AG_RULES=("${selected[@]}")
+          }
+          [ ${#ORPH_AG_HOOKS[@]} -gt 0 ] && {
+            scope_cat hook "${ORPH_AG_HOOKS[@]}"
+            prompt_category "Remove Antigravity hooks"
+            [ ${#selected[@]} -gt 0 ] && REMOVE_AG_HOOKS=("${selected[@]}")
+          }
+        fi
+        ;;
+      *) : ;; # keep (default)
+    esac
+  fi
+  return 0
+}
+
+print_plan() {
   head "Plan"
   say "  Install agents:  ${sel_agents[*]:-(none)}"
   say "  Install rules:   ${sel_rules[*]:-(none)}"
@@ -591,20 +908,60 @@ print_plan() {
   say "  Install plugins: ${sel_plugins[*]:-(none)}"
   say "  Install skills:  ${sel_skills[*]:-(none)}"
   say "  CLAUDE.md:       $([ "$WANT_CLAUDEMD" = "1" ] && echo "install/overwrite" || echo "skip")"
-  if [ ${#REMOVE_AGENTS[@]} -gt 0 ] || [ ${#REMOVE_RULES[@]} -gt 0 ] || [ ${#REMOVE_HOOKS[@]} -gt 0 ]; then
-    say "  ${YELLOW}Remove (on disk, not in this selection):${RESET}"
-    [ ${#REMOVE_AGENTS[@]} -gt 0 ] && say "    agents: ${REMOVE_AGENTS[*]}"
-    [ ${#REMOVE_RULES[@]} -gt 0 ] && say "    rules:  ${REMOVE_RULES[*]}"
-    [ ${#REMOVE_HOOKS[@]} -gt 0 ] && say "    hooks:  ${REMOVE_HOOKS[*]}"
+  local any_rm=0
+  [ ${#REMOVE_CL_AGENTS[@]} -gt 0 ] && any_rm=1
+  [ ${#REMOVE_CL_RULES[@]} -gt 0 ] && any_rm=1
+  [ ${#REMOVE_CL_HOOKS[@]} -gt 0 ] && any_rm=1
+  [ ${#REMOVE_AG_AGENTS[@]} -gt 0 ] && any_rm=1
+  [ ${#REMOVE_AG_RULES[@]} -gt 0 ] && any_rm=1
+  [ ${#REMOVE_AG_HOOKS[@]} -gt 0 ] && any_rm=1
+  if [ "$any_rm" = "1" ]; then
+    say "  ${YELLOW}Remove (orphaned — no longer justified by scan):${RESET}"
+    if [ "$WANT_CLAUDE" = "1" ]; then
+      [ ${#REMOVE_CL_AGENTS[@]} -gt 0 ] && say "    claude agents: ${REMOVE_CL_AGENTS[*]}"
+      [ ${#REMOVE_CL_RULES[@]} -gt 0 ] && say "    claude rules:  ${REMOVE_CL_RULES[*]}"
+      [ ${#REMOVE_CL_HOOKS[@]} -gt 0 ] && say "    claude hooks:  ${REMOVE_CL_HOOKS[*]}"
+    fi
+    if [ "$WANT_AG" = "1" ]; then
+      [ ${#REMOVE_AG_AGENTS[@]} -gt 0 ] && say "    agy agents:    ${REMOVE_AG_AGENTS[*]}"
+      [ ${#REMOVE_AG_RULES[@]} -gt 0 ] && say "    agy rules:     ${REMOVE_AG_RULES[*]}"
+      [ ${#REMOVE_AG_HOOKS[@]} -gt 0 ] && say "    agy hooks:     ${REMOVE_AG_HOOKS[*]}"
+    fi
   fi
 }
 
+# ---- Dispatch: build catalogs once, then fork by mode ----
+build_catalogs
+REMOVE_CL_AGENTS=()
+REMOVE_CL_RULES=()
+REMOVE_CL_HOOKS=()
+REMOVE_AG_AGENTS=()
+REMOVE_AG_RULES=()
+REMOVE_AG_HOOKS=()
+
 if [ "$MINIMAL_BASELINE" = "1" ]; then
-  REMOVE_AGENTS=()
-  REMOVE_RULES=()
-  REMOVE_HOOKS=()
   sel_plugins=()
   print_plan
+elif [ "$TIER" = "gap" ]; then
+  # Gap-analysis fork: reconcile against existing config. Always ask approval
+  # (the plan may carry destructive remove rows) unless in-sync or non-interactive.
+  run_gap_flow
+  if [ "$GAP_INSYNC" != "1" ]; then
+    print_plan
+    if [ "$INTERACTIVE" = "1" ]; then
+      printf "Approve plan? [Y]es / [c]ancel: "
+      ask_line
+      case "$REPLY_LINE" in
+        "" | y | Y | yes | YES) : ;;
+        *)
+          say "Cancelled."
+          exit 0
+          ;;
+      esac
+    else
+      say "  ${DIM}(gap mode, non-interactive — install-missing only, auto-approved)${RESET}"
+    fi
+  fi
 elif [ "$TIER" = "standard" ] || [ "$TIER" = "full" ]; then
   # One-shot tiers: build selection silently, render the plan, auto-proceed.
   select_all
@@ -671,10 +1028,12 @@ if [ "$WANT_CLAUDE" = "1" ]; then
     done
   fi
 
-  # Removals (gap-analysis mode): only files the approved plan didn't re-select.
-  for a in "${REMOVE_AGENTS[@]:-}"; do [ -n "$a" ] && rm -f "$TARGET/.claude/agents/$a.md" && ok "removed agent: $a"; done
-  for r in "${REMOVE_RULES[@]:-}"; do [ -n "$r" ] && rm -f "$TARGET/.claude/rules/$r.md" && ok "removed rule: $r"; done
-  for h in "${REMOVE_HOOKS[@]:-}"; do [ -n "$h" ] && rm -f "$TARGET/.claude/hooks/$h.sh" && ok "removed hook: $h"; done
+  # Removals (gap-analysis mode): orphans the approved plan flagged. Removed
+  # hook scripts are pruned from settings.json below (the merge drops any hook
+  # entry whose script file no longer exists on disk).
+  for a in "${REMOVE_CL_AGENTS[@]:-}"; do [ -n "$a" ] && rm -f "$TARGET/.claude/agents/$a.md" && ok "removed agent: $a"; done
+  for r in "${REMOVE_CL_RULES[@]:-}"; do [ -n "$r" ] && rm -f "$TARGET/.claude/rules/$r.md" && ok "removed rule: $r"; done
+  for h in "${REMOVE_CL_HOOKS[@]:-}"; do [ -n "$h" ] && rm -f "$TARGET/.claude/hooks/$h.sh" && ok "removed hook: $h"; done
 
   # settings.json: hook registration + scoped permissions.allow. Runs whenever
   # there's anything to register, even with zero hooks selected (permissions
@@ -727,6 +1086,23 @@ for (const h of hooks) {
       group.hooks.push({ type: 'command', command: cmd });
     }
   }
+}
+// Prune hook entries whose script no longer exists on disk (orphan removals in
+// gap mode). Drops empty groups/events too. No-op on a fresh install (every
+// referenced script was just copied).
+const path = require('path');
+const hooksDir = path.join(path.dirname(settingsPath), 'hooks');
+for (const ev of Object.keys(s.hooks)) {
+  const groups = (s.hooks[ev] || []).map(g => {
+    if (g && Array.isArray(g.hooks)) {
+      g.hooks = g.hooks.filter(x => {
+        const m = x && x.command && x.command.match(/\/hooks\/([\w-]+)\.sh/);
+        return !m || fs.existsSync(path.join(hooksDir, m[1] + '.sh'));
+      });
+    }
+    return g;
+  }).filter(g => g && Array.isArray(g.hooks) && g.hooks.length > 0);
+  if (groups.length) s.hooks[ev] = groups; else delete s.hooks[ev];
 }
 let perms = [];
 try { perms = JSON.parse(permsJson || '[]'); } catch (e) { perms = []; }
@@ -810,6 +1186,12 @@ if [ "$WANT_AG" = "1" ]; then
   AG_ROOT="$TARGET/.agents"
   mkdir -p "$AG_ROOT"
 
+  # Removals (gap-analysis orphans): drop before installing so copy_managed's
+  # skip-existing can't leave a stale orphan in place. Agents live as skill dirs.
+  for a in "${REMOVE_AG_AGENTS[@]:-}"; do [ -n "$a" ] && rm -rf "$AG_ROOT/skills/$a" && ok "removed AG skill: $a"; done
+  for r in "${REMOVE_AG_RULES[@]:-}"; do [ -n "$r" ] && rm -f "$AG_ROOT/rules/$r.md" && ok "removed AG rule: $r"; done
+  for h in "${REMOVE_AG_HOOKS[@]:-}"; do [ -n "$h" ] && rm -f "$AG_ROOT/hooks/$h.sh" && ok "removed AG hook: $h"; done
+
   # Rules → rules/<name>.md (identical markdown convention).
   if [ ${#sel_rules[@]} -gt 0 ]; then
     mkdir -p "$AG_ROOT/rules"
@@ -856,47 +1238,61 @@ if [ "$WANT_AG" = "1" ]; then
   fi
 
   # Hooks → copy the native antigravity/ scripts (duplicated logic, no
-  # translation shim), generate hooks.json.
+  # translation shim), (re)generate hooks.json. Desired set = existing kept +
+  # newly selected, minus removed orphans. hooks.json is regenerated wholesale,
+  # so it must carry the FULL desired set (gap mode's sel_hooks is only the newly
+  # added hooks — kept ones come from EXIST_AG_HOOKS).
+  ag_desired=()
+  for h in "${EXIST_AG_HOOKS[@]:-}" "${sel_hooks[@]:-}"; do
+    [ -n "$h" ] || continue
+    contains "$h" "${REMOVE_AG_HOOKS[@]:-}" && continue
+    contains "$h" "${ag_desired[@]:-}" || ag_desired+=("$h")
+  done
   ag_hooks=()
-  for h in "${sel_hooks[@]:-}"; do
+  for h in "${ag_desired[@]:-}"; do
     [ -n "$h" ] || continue
     case " $AG_SUPPORTED_HOOKS " in *" $h "*) ag_hooks+=("$h") ;; *) skip "hook: $h (not supported on Antigravity)" ;; esac
   done
+  # hooks.json: map each hook straight to its native script — no adapter, no AG_HOOK indirection.
+  # PreToolUse/PostToolUse use the matcher+hooks[] wrapper; PreInvocation/
+  # PostInvocation/Stop are a flat handler array with no matcher.
+  WRITE_MATCHER="write_to_file|replace_file_content|multi_replace_file_content"
+  ag_hook_event() {
+    case "$1" in
+      block-dangerous-commands | scan-secrets | protect-files | warn-large-files) echo "PreToolUse" ;;
+      session-start) echo "PreInvocation" ;;
+      *) echo "Stop" ;;
+    esac
+  }
+  ag_hook_matcher() {
+    case "$1" in
+      block-dangerous-commands) echo "run_command" ;;
+      scan-secrets | protect-files | warn-large-files) echo "$WRITE_MATCHER" ;;
+      *) echo "" ;;
+    esac
+  }
+  ag_hook_timeout() {
+    case "$1" in
+      auto-test) echo 120 ;;
+      typecheck-on-stop | lint-on-stop) echo 60 ;;
+      format-on-save) echo 30 ;;
+      *) echo 10 ;;
+    esac
+  }
   if [ ${#ag_hooks[@]} -gt 0 ]; then
     mkdir -p "$AG_ROOT/hooks"
     for h in "${ag_hooks[@]}"; do
       cp "$SCRIPT_DIR/hooks/antigravity/$h.sh" "$AG_ROOT/hooks/$h.sh" && chmod +x "$AG_ROOT/hooks/$h.sh" && AG_INSTALLED_HOOKS+=("$h")
     done
-    # hooks.json: map each hook straight to its native script — no adapter, no AG_HOOK indirection.
-    # PreToolUse/PostToolUse use the matcher+hooks[] wrapper; PreInvocation/
-    # PostInvocation/Stop are a flat handler array with no matcher.
-    WRITE_MATCHER="write_to_file|replace_file_content|multi_replace_file_content"
-    ag_hook_event() {
-      case "$1" in
-        block-dangerous-commands | scan-secrets | protect-files | warn-large-files) echo "PreToolUse" ;;
-        session-start) echo "PreInvocation" ;;
-        *) echo "Stop" ;;
-      esac
-    }
-    ag_hook_matcher() {
-      case "$1" in
-        block-dangerous-commands) echo "run_command" ;;
-        scan-secrets | protect-files | warn-large-files) echo "$WRITE_MATCHER" ;;
-        *) echo "" ;;
-      esac
-    }
-    ag_hook_timeout() {
-      case "$1" in
-        auto-test) echo 120 ;;
-        typecheck-on-stop | lint-on-stop) echo 60 ;;
-        format-on-save) echo 30 ;;
-        *) echo 10 ;;
-      esac
-    }
+  fi
+  # (Re)generate hooks.json when wiring hooks, or when a removal changed the set
+  # (an emptied set writes a valid `{}`).
+  if [ ${#ag_hooks[@]} -gt 0 ] || [ ${#REMOVE_AG_HOOKS[@]} -gt 0 ]; then
     {
       printf '{\n'
       first=1
-      for h in "${ag_hooks[@]}"; do
+      for h in "${ag_hooks[@]:-}"; do
+        [ -n "$h" ] || continue
         event=$(ag_hook_event "$h")
         t=$(ag_hook_timeout "$h")
         [ $first -eq 1 ] && first=0 || printf ',\n'
@@ -1105,7 +1501,7 @@ if [ "$WANT_CLAUDE" = "1" ]; then
   say "    Plugins:           ${sel_plugins[*]:-(none)}"
   say "    Skills:            ${sel_skills[*]:-(none)}"
   say "    CLAUDE.md:         $CLAUDEMD_VERDICT"
-  say "    Removed:           agents=${REMOVE_AGENTS[*]:-none} rules=${REMOVE_RULES[*]:-none} hooks=${REMOVE_HOOKS[*]:-none}"
+  say "    Removed:           agents=${REMOVE_CL_AGENTS[*]:-none} rules=${REMOVE_CL_RULES[*]:-none} hooks=${REMOVE_CL_HOOKS[*]:-none}"
 fi
 if [ "$WANT_AG" = "1" ]; then
   say "  ${BOLD}Antigravity (.agents/)${RESET}"
@@ -1114,9 +1510,20 @@ if [ "$WANT_AG" = "1" ]; then
   say "    Hooks:             ${AG_INSTALLED_HOOKS[*]:-(none)} ${DIM}(safety guardrails only)${RESET}"
   say "    Plugins:           ${sel_plugins[*]:-(none)}"
   say "    Skills (catalog):  ${sel_skills[*]:-(none)} ${DIM}(.agents/skills/)${RESET}"
+  say "    Removed:           agents=${REMOVE_AG_AGENTS[*]:-none} rules=${REMOVE_AG_RULES[*]:-none} hooks=${REMOVE_AG_HOOKS[*]:-none}"
 fi
 say "  Always-loaded est.:  ~${TOKEN_EST} tokens (CLAUDE.md/AGENTS.md + path-less rules)"
 [ "$TOKEN_EST" -gt 1000 ] 2>/dev/null && say "  ${YELLOW}Consider trimming — over the ~1000 token always-loaded budget.${RESET}"
+
+# Rule paths: reminder — the scan can only auto-rewrite the common src/ prefix.
+if [ ${#sel_rules[@]} -gt 0 ]; then
+  say ""
+  say "  ${BOLD}Next:${RESET} review rule ${CYAN}paths:${RESET} globs so they match your layout."
+  [ -n "$PRIMARY_SRC_DIR" ] && say "  ${DIM}(auto-rewrote src/ → $PRIMARY_SRC_DIR/ where found; verify the rest.)${RESET}"
+  [ "$WANT_CLAUDE" = "1" ] && say "  ${DIM}Claude rules:      .claude/rules/*.md${RESET}"
+  [ "$WANT_AG" = "1" ] && say "  ${DIM}Antigravity rules: .agents/rules/*.md${RESET}"
+fi
+
 say ""
 [ "$WANT_CLAUDE" = "1" ] && say "${YELLOW}Restart Claude Code${RESET} so the new agents, rules, and hooks are picked up."
 [ "$WANT_AG" = "1" ] && say "${YELLOW}Reload Antigravity${RESET} so the new .agents/ skills, rules, and hooks are picked up."
