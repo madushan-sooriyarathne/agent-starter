@@ -96,22 +96,24 @@ handful of real source/test files when a signal is ambiguous.
 - Deploy signals: `Dockerfile`, `docker-compose.*`, `Caddyfile`, `nginx.conf`.
 - Git: default branch (`git symbolic-ref refs/remotes/origin/HEAD`), whether
   `gh` is installed and a GitHub remote exists (gates PR-related skills).
-- existing host config for any of `TARGETS` (`.claude/` for `claude`,
-  `.agents/` for `agy`) → **gap-analysis mode** (see below)
+- existing host config for any of `TARGETS` (`.claude/` + `CLAUDE.md` for
+  `claude`, `.agents/` + `AGENTS.md` for `agy`) → **gap-analysis mode** (see
+  below); presence of the tree OR its project doc is enough to trip it
 
 If the project has no source files and no manifests: say so, offer only the
 minimal baseline (project-doc template + the four safety hooks), and stop after
 installing it. Tell the user to re-run once code exists.
 
-**Gap-analysis mode:** if a target's host config already exists (`.claude/` for
-`claude`, `.agents/` for `agy`), read what's already there (agents/skills,
-rules, hooks wired in `settings.json`/`hooks.json`) directly from disk — no
-separate install-record file is needed. Offer what's missing per the catalogs
-below, and also flag anything present that current evidence no longer justifies
-(stack signal removed, file hand-deleted from upstream, etc.) as a candidate for
-**removal** in the Step 3 plan table. Never delete or overwrite an existing file
-without it appearing in the approved plan first. When `TARGETS` has both hosts,
-run gap-analysis independently per host.
+**Gap-analysis mode:** if a target's host config already exists (`.claude/` +
+`CLAUDE.md` for `claude`, `.agents/` + `AGENTS.md` for `agy`), set gap mode for
+this run and read what's already there (agents/skills, rules, hooks wired in
+`settings.json`/`hooks.json`) directly from disk — no separate install-record
+file is needed. Gap mode **replaces the install-tier pick (Step 1.6) with the
+gap-analysis remediation (Step 1.7)**: it offers what's missing and flags what's
+orphaned, then routes both through the Step 3 plan. Never delete or overwrite an
+existing file without it appearing in the approved plan first. When `TARGETS`
+has both hosts, run gap-analysis independently per host — a host with no config
+yet simply has its full recommended set as "missing" and nothing orphaned.
 
 Build a `detectedStack` list from the hits.
 
@@ -151,10 +153,16 @@ Then ask one `AskUserQuestion`: **Accept** / **Correct it**. On _Correct it_,
 take the user's edits, patch `detectedStack`, re-render the summary, and re-ask
 until accepted. Do not proceed until the stack is confirmed.
 
-## Step 1.6 — Pick install tier
+**Fork after the stack is confirmed:** if this run is in gap-analysis mode (Step
+1 found existing config for any target), skip the install tiers and go straight
+to **Step 1.7**. Otherwise continue to Step 1.6.
 
-Once the stack is accepted, offer how to install. Ask one `AskUserQuestion`
-with four options, each stating what's in and out:
+## Step 1.6 — Pick install tier (fresh install only)
+
+Reached only when no target has existing config — in gap-analysis mode this step
+is skipped and Step 1.7 replaces it. Once the stack is accepted, offer how to
+install. Ask one `AskUserQuestion` with four options, each stating what's in and
+out:
 
 - **Minimal** — project-doc template + the four safety hooks only
   (`block-dangerous-commands`, `scan-secrets`, `protect-files`,
@@ -180,6 +188,53 @@ further questions **except** when one of these fires — only then stop and ask:
   Otherwise apply the whole plan and report at the end.
 
 **Let me check** → proceed to Step 2.
+
+## Step 1.7 — Gap-analysis remediation (gap mode only)
+
+Reached when Step 1 detected existing host config for any target. This
+**replaces** the install tiers (Step 1.6). Compute the two lists per host in
+`TARGETS` independently, against the confirmed stack and the six catalogs (read
+each catalog once, apply its **Recommend when** column):
+
+- **Missing** — a catalog item whose **Recommend when** now holds against the
+  scan but which is absent from disk. The four safety hooks
+  (`block-dangerous-commands`, `scan-secrets`, `protect-files`,
+  `warn-large-files`) count as missing whenever they aren't wired. A host with
+  no config yet lists its full recommended set here.
+- **Orphan** — something already on disk that current evidence no longer
+  justifies: (a) an installed catalog item whose **Recommend when** is now false
+  (stack signal removed), or (b) an installed file with no catalog match at all
+  (renamed or dropped upstream, hand-added). Never treat the project doc,
+  `settings.json`/`hooks.json`, or `.agent-starter.json` as orphans — they are
+  host plumbing, not catalog components.
+
+Render one gap report — two labeled sections, one row per item with a one-line
+reason. When `TARGETS` has both hosts and their state differs, group by host.
+
+```
+Gap analysis (Targets: Claude Code)
+  Missing — catalog offers, not installed
+    security-reviewer (agent)   API routes in src/api/ — no reviewer present
+    scan-secrets (hook)         safety baseline — not wired
+  Orphan — installed, no longer justified
+    graphql.md (rule)           no GraphQL dep or schema found anymore
+    old-helper.sh (hook)        no catalog match — renamed/removed upstream
+```
+
+If both lists are empty, tell the user the setup is already in sync with the
+current stack and stop — nothing to plan.
+
+Otherwise ask two `AskUserQuestion` rounds, **missing first, then orphans**:
+
+1. **Missing** — options: **Install all (Recommended)** (list each item with its
+   reason so the user sees why) / **Choose per category** (drop into the Step 2
+   category flow, pre-marked, but scoped to the missing items only) / **Skip**.
+2. **Orphans** — options: **Remove all** / **Choose per category** (per-category
+   toggles, scoped to the orphans only) / **Keep all**. Removal is destructive:
+   it only ever proceeds via the approved Step 3 plan (below), never here.
+
+Carry both selections into Step 3 as `install` rows (chosen missing items) and
+`remove` rows (chosen orphans), then continue to Step 3 as normal.
 
 ## Step 2 — Category-by-category selection
 
@@ -250,8 +305,10 @@ For the **Let me check** tier, ask one `AskUserQuestion`: **approve the plan** /
 **adjust** (loop back to Step 2) / **cancel**. Do not proceed to materialization
 without approval. For one-shot tiers (Minimal / Standard / Full), still render
 this table, but auto-approve and proceed — interrupt only on the missing-dep or
-crucial/destructive flags listed in Step 1.6. This table is the contract —
-materialization installs and removes exactly what it lists.
+crucial/destructive flags listed in Step 1.6. **In gap-analysis mode always ask
+for approval** (**approve the plan** / **adjust** — loop back to Step 1.7 /
+**cancel**), since the plan may carry `remove` rows. This table is the contract
+— materialization installs and removes exactly what it lists.
 
 ## Next — materialize
 

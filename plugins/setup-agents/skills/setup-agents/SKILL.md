@@ -48,4 +48,7 @@ External skills and the Caveman plugin install once per adapter in `ADAPTERS`.
 Ponytail installs per selected host (Claude Code via `claude plugin`, Antigravity
 via `agy plugin install <url>`), user-scoped on both. Everything else in
 `references/scan-and-plan.md` — the governing principle, gap-analysis mode, and
-guardrails — applies as written.
+guardrails — applies as written. When either host already has config
+(`.claude/`+`CLAUDE.md` or `.agents/`+`AGENTS.md`), that host takes the
+gap-analysis fork (Step 1.7): missing items offered, orphans flagged, each
+one-shot or per-category — instead of the fresh-install tiers.

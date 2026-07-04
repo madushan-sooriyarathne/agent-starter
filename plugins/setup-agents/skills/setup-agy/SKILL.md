@@ -44,4 +44,6 @@ Then:
 
 Ponytail is Claude Code only and is skipped in this mode. Everything else in
 `scan-and-plan.md` — the governing principle, gap-analysis mode, and guardrails
-— applies as written.
+— applies as written. When `.agents/`+`AGENTS.md` already exist, this takes the
+gap-analysis fork (Step 1.7): missing items offered, orphans flagged, each
+one-shot or per-category — instead of the fresh-install tiers.
