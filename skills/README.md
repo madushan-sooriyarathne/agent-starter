@@ -13,6 +13,20 @@ Skills are slash commands you invoke with `/name`. They run in the main conversa
 
 Set up agent-starter in any project on an install-nothing-without-evidence basis. Deep-scans the codebase (manifests, real source and test files, directory layout, git workflow, existing AI configs like `.cursorrules`), interviews you about scope and preferences, then proposes an install plan where every rule, hook, agent, and skill is justified by scan evidence. Only the approved plan is copied in, customized to the stack (real commands, real path globs, hooks wired only if installed). On an existing `.claude/` it runs as a gap analysis: add what's missing, propose removing what's unjustified. Confirms every change before applying.
 
+`/setup-agents` targets **both** hosts. Two host-scoped variants share the same scan/plan logic but write only one tree:
+
+### /setup-claude
+
+**Trigger**: Manual only
+
+Same flow as `/setup-agents`, Claude Code only. Writes `.claude/` + `CLAUDE.md`, even when run from Antigravity.
+
+### /setup-agy
+
+**Trigger**: Manual only
+
+Same flow as `/setup-agents`, Antigravity only. Writes `.agents/` + `AGENTS.md`, even when run from Claude Code.
+
 ### /debug-fix [issue, error, or description] [--fast]
 
 **Trigger**: Manual only

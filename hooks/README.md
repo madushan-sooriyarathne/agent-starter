@@ -10,7 +10,7 @@ Scripts live in two host-specific directories — `claude/` and `antigravity/` �
 
 Wired in `settings.json` under the `"hooks"` key. Each hook specifies an event, a matcher, and a command to run. `timeout` values are in **seconds**.
 
-The four PreToolUse guards below are also packaged as the `safety-hooks` plugin (`/plugin install safety-hooks@agent-starter`) via `plugins/safety-hooks/hooks/hooks.json`, so you can get them without copying any files.
+The four PreToolUse guards below are the always-on safety layer — installed into `.claude/hooks/` and wired into `settings.json` by `/setup-agents` regardless of stack.
 
 ### protect-files.sh
 

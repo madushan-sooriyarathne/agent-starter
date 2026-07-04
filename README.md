@@ -109,13 +109,15 @@ Hooks exit `0` to allow and `2` to block; stderr is fed back to Claude.
 | `notify`        | Notification | Native OS notification (macOS/Linux/WSL)                                          |
 | `session-start` | SessionStart | Injects branch + dirty-state context (~5–10 tokens); drift nudge if stack changed |
 
-### Skills (12 bundled + 17 external)
+### Skills (14 bundled + 17 external)
 
 **Bundled** — ship with this plugin, no install needed:
 
 | Skill            | Invoke            | Purpose                                                              |
 | ---------------- | ----------------- | -------------------------------------------------------------------- |
-| `setup-agents`   | `/setup-agents`   | Scan → plan → install `.claude/` config, evidence-driven             |
+| `setup-agents`   | `/setup-agents`   | Scan → plan → install for **both** hosts (`.claude/` + `.agents/`)   |
+| `setup-claude`   | `/setup-claude`   | Same flow, Claude Code only (`.claude/` + `CLAUDE.md`)               |
+| `setup-agy`      | `/setup-agy`      | Same flow, Antigravity only (`.agents/` + `AGENTS.md`)               |
 | `catchup`        | `/catchup`        | Rebuild context after `/clear`; `handoff` to write the session note  |
 | `debug-fix`      | `/debug-fix`      | Careful bug fix. `--fast` for hotfix branch                          |
 | `explain`        | `/explain`        | One-sentence summary + mental model; `verbose` for ASCII diagram     |
@@ -214,10 +216,12 @@ agent-starter/
 ├── .claude-plugin/marketplace.json   # marketplace manifest
 ├── agents/                           # 8 review agent definitions
 ├── rules/                            # 16 rule files
-├── hooks/                            # 10 hook scripts + tests/
-├── skills/                           # 11 bundled skill dirs
+├── hooks/                            # 10 hooks × 2 hosts (claude/ + antigravity/) + tests/
+├── skills/                           # 14 bundled skill dirs
 ├── plugins/                          # setup-agents plugin (plugin.json + skill copy)
 ├── scripts/
+│   ├── test.sh                       # single consistency gate (run before every commit)
+│   ├── format.sh                     # formats bash + markdown + JSON
 │   └── materialize-agy-skills.sh     # regenerates plugins/*/skills/ real copies for agy
 ├── templates/
 │   ├── CLAUDE.template.md            # shipped to user projects by /setup-agents
@@ -236,6 +240,17 @@ scaffolding, not as standalone plugins.
 ## Development
 
 ```bash
+bash scripts/test.sh                     # THE gate — run before every commit (aggregates everything below + more)
+bash scripts/format.sh                   # format bash + markdown + JSON
+```
+
+`scripts/test.sh` is the single consistency check: bash syntax, JSON validity,
+`plugin.json` version parity, agent/skill frontmatter, hook antigravity-twin +
+fixture parity, catalog drift, agy-skill copy freshness, the hook fixture suite,
+and an `install.sh` smoke run. It fails **closed** on any structural break; exit
+`0` = shippable. Targeted runs:
+
+```bash
 bash hooks/tests/run-all.sh              # run all hook fixture tests (requires jq)
 claude plugin validate . --strict        # validate marketplace + plugin manifests
 agy plugin validate plugins/<name>       # validate a single plugin against agy's schema
@@ -243,4 +258,10 @@ agy plugin validate plugins/<name>       # validate a single plugin against agy'
 ./scripts/materialize-agy-skills.sh --check  # verify copies aren't stale (no writes)
 ```
 
-Every new or modified hook ships with fixtures under `hooks/tests/fixtures/<hook-name>/`. After changing any manifest, skill, or agent frontmatter, run `claude plugin validate . --strict`.
+Every new or modified hook ships with fixtures under `hooks/tests/fixtures/<host>/<hook-name>/`. After changing any manifest, skill, or agent frontmatter, run `claude plugin validate . --strict`.
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full contributor guide — how the repo is laid out, where to add each component type, versioning, and the pre-commit gate.
+
+## License
+
+[MIT](LICENSE) — free to use, modify, and distribute, including commercially.
