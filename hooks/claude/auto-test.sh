@@ -24,17 +24,17 @@ DIR=$(dirname "$FILE_PATH")
 
 # Skip if the edited file IS a test file.
 case "$BASENAME" in
-  *.test.*|*.spec.*|*_test.*|*_spec.*|test_*|spec_*) exit 0 ;;
+  *.test.* | *.spec.* | *_test.* | *_spec.* | test_* | spec_*) exit 0 ;;
 esac
 
 # Skip config, style, and non-code files.
 case "$EXTENSION" in
-  json|yaml|yml|toml|ini|cfg|env|md|txt|css|scss|less|svg|png|jpg|ico|html) exit 0 ;;
+  json | yaml | yml | toml | ini | cfg | env | md | txt | css | scss | less | svg | png | jpg | ico | html) exit 0 ;;
 esac
 
 # Skip files in non-testable directories.
 case "$FILE_PATH" in
-  */.claude/*|*/public/*|*/static/*|*/assets/*|*/__mocks__/*) exit 0 ;;
+  */.claude/* | */public/* | */static/* | */assets/* | */__mocks__/*) exit 0 ;;
 esac
 
 # Find project root.
@@ -68,12 +68,18 @@ find_test_file() {
 
   # Same directory first.
   for pattern in "${patterns[@]}"; do
-    [ -f "${DIR}/${pattern}" ] && { echo "${DIR}/${pattern}"; return; }
+    [ -f "${DIR}/${pattern}" ] && {
+      echo "${DIR}/${pattern}"
+      return
+    }
   done
 
   # __tests__ subdirectory (Jest convention).
   for pattern in "${patterns[@]}"; do
-    [ -f "${DIR}/__tests__/${pattern}" ] && { echo "${DIR}/__tests__/${pattern}"; return; }
+    [ -f "${DIR}/__tests__/${pattern}" ] && {
+      echo "${DIR}/__tests__/${pattern}"
+      return
+    }
   done
 
   # Parallel test directory structure (src/foo.ts -> tests/foo.test.ts).
@@ -82,7 +88,10 @@ find_test_file() {
   for test_root in "tests" "test" "__tests__" "spec"; do
     test_rel_dir=$(echo "$rel_dir" | sed "s|^src/|${test_root}/|;s|^lib/|${test_root}/|")
     for pattern in "${patterns[@]}"; do
-      [ -f "${ROOT}/${test_rel_dir}/${pattern}" ] && { echo "${ROOT}/${test_rel_dir}/${pattern}"; return; }
+      [ -f "${ROOT}/${test_rel_dir}/${pattern}" ] && {
+        echo "${ROOT}/${test_rel_dir}/${pattern}"
+        return
+      }
     done
   done
 
@@ -90,7 +99,10 @@ find_test_file() {
   local found
   for pattern in "${patterns[@]}"; do
     found=$(find "$ROOT" -maxdepth 5 -name "$pattern" -not -path "*/node_modules/*" -not -path "*/.git/*" -print -quit 2>/dev/null)
-    [ -n "$found" ] && { echo "$found"; return; }
+    [ -n "$found" ] && {
+      echo "$found"
+      return
+    }
   done
 }
 
@@ -109,37 +121,48 @@ REL_TEST="${TEST_FILE#$ROOT/}"
 OUTPUT=""
 EXIT=0
 case "$EXTENSION" in
-  js|jsx|ts|tsx|mjs|cjs)
+  js | jsx | ts | tsx | mjs | cjs)
     if [ -f "$ROOT/node_modules/.bin/vitest" ]; then
-      OUTPUT=$(cd "$ROOT" && npx vitest run "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && npx vitest run "$REL_TEST" 2>&1)
+      EXIT=$?
     elif [ -f "$ROOT/node_modules/.bin/jest" ]; then
-      OUTPUT=$(cd "$ROOT" && npx jest "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && npx jest "$REL_TEST" 2>&1)
+      EXIT=$?
     elif [ -f "$ROOT/node_modules/.bin/mocha" ]; then
-      OUTPUT=$(cd "$ROOT" && npx mocha "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && npx mocha "$REL_TEST" 2>&1)
+      EXIT=$?
     else
-      OUTPUT=$(cd "$ROOT" && npm test -- "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && npm test -- "$REL_TEST" 2>&1)
+      EXIT=$?
     fi
     ;;
   py)
     if command -v pytest >/dev/null 2>&1; then
-      OUTPUT=$(cd "$ROOT" && pytest "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && pytest "$REL_TEST" 2>&1)
+      EXIT=$?
     elif command -v python3 >/dev/null 2>&1; then
-      OUTPUT=$(cd "$ROOT" && python3 -m unittest "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && python3 -m unittest "$REL_TEST" 2>&1)
+      EXIT=$?
     elif command -v python >/dev/null 2>&1; then
-      OUTPUT=$(cd "$ROOT" && python -m unittest "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && python -m unittest "$REL_TEST" 2>&1)
+      EXIT=$?
     fi
     ;;
   go)
-    OUTPUT=$(cd "$DIR" && go test ./... 2>&1); EXIT=$?
+    OUTPUT=$(cd "$DIR" && go test ./... 2>&1)
+    EXIT=$?
     ;;
   rs)
-    OUTPUT=$(cd "$ROOT" && cargo test 2>&1); EXIT=$?
+    OUTPUT=$(cd "$ROOT" && cargo test 2>&1)
+    EXIT=$?
     ;;
   lua)
     if command -v busted >/dev/null 2>&1; then
-      OUTPUT=$(cd "$ROOT" && busted "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && busted "$REL_TEST" 2>&1)
+      EXIT=$?
     else
-      OUTPUT=$(cd "$ROOT" && lua "$REL_TEST" 2>&1); EXIT=$?
+      OUTPUT=$(cd "$ROOT" && lua "$REL_TEST" 2>&1)
+      EXIT=$?
     fi
     ;;
   *)

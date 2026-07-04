@@ -16,7 +16,10 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required" >&2; exit 2; }
+command -v jq >/dev/null 2>&1 || {
+  echo "FATAL: jq required" >&2
+  exit 2
+}
 
 # All 10 hooks have a native Antigravity twin (mirror of install.sh's list).
 AG_SUPPORTED_HOOKS="block-dangerous-commands scan-secrets protect-files warn-large-files typecheck-on-stop lint-on-stop format-on-save auto-test notify session-start"
@@ -25,18 +28,33 @@ SKILL_CATALOG_EXCLUDE=" setup-agents setup-agy setup-claude "
 
 CATALOG="skills/setup-agents/references"
 
-PASS=0; FAIL=0; SKIP=0
+PASS=0
+FAIL=0
+SKIP=0
 FAILED=()
-pass()  { printf '  \033[32m✓\033[0m %s\n' "$1"; PASS=$((PASS+1)); }
-faild() { printf '  \033[31m✗\033[0m %s\n' "$1"; FAIL=$((FAIL+1)); FAILED+=("$1"); }
-skp()   { printf '  \033[2m•\033[0m %s\n' "$1"; SKIP=$((SKIP+1)); }
+pass() {
+  printf '  \033[32m✓\033[0m %s\n' "$1"
+  PASS=$((PASS + 1))
+}
+faild() {
+  printf '  \033[31m✗\033[0m %s\n' "$1"
+  FAIL=$((FAIL + 1))
+  FAILED+=("$1")
+}
+skp() {
+  printf '  \033[2m•\033[0m %s\n' "$1"
+  SKIP=$((SKIP + 1))
+}
 group() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 
 # --- 1. bash syntax --------------------------------------------------------
 group "bash syntax"
 bad=0
 while IFS= read -r f; do
-  bash -n "$f" 2>/dev/null || { faild "syntax error: $f"; bad=1; }
+  bash -n "$f" 2>/dev/null || {
+    faild "syntax error: $f"
+    bad=1
+  }
 done < <(find . -path ./.git -prune -o -name '*.sh' -print)
 [ "$bad" = 0 ] && pass "all .sh parse"
 
@@ -44,9 +62,21 @@ done < <(find . -path ./.git -prune -o -name '*.sh' -print)
 group "JSON validity"
 bad=0
 while IFS= read -r f; do
-  jq empty "$f" 2>/dev/null || { faild "invalid JSON: $f"; bad=1; }
+  jq empty "$f" 2>/dev/null || {
+    faild "invalid JSON: $f"
+    bad=1
+  }
 done < <(find . -path ./.git -prune -o -name '*.json' -print)
 [ "$bad" = 0 ] && pass "all .json parse"
+
+# --- 2b. formatting (shfmt + prettier; skips absent tools) ------------------
+group "formatting"
+if fmt=$(bash scripts/format.sh --check 2>&1); then
+  pass "all .sh/.json/.md formatted (or tool absent)"
+else
+  faild "unformatted files — run scripts/format.sh"
+  printf '%s\n' "$fmt" | sed 's/^/    /'
+fi
 
 # --- 3. version parity -----------------------------------------------------
 group "version parity"
@@ -66,7 +96,7 @@ fi
 
 # --- 4. frontmatter (agents + skills need name + description) ---------------
 group "frontmatter (agents + skills)"
-fm_ok() {  # exit 0 if file has name: and description: inside its --- frontmatter
+fm_ok() { # exit 0 if file has name: and description: inside its --- frontmatter
   awk 'NR==1 && $0!="---" { exit }
        NR>1 && $0=="---"  { done=1; exit }
        /^name:/        { n=1 }
@@ -77,7 +107,10 @@ bad=0
 for f in agents/*.md skills/*/SKILL.md; do
   [ -f "$f" ] || continue
   [ "$(basename "$f")" = README.md ] && continue
-  fm_ok "$f" || { faild "missing name/description frontmatter: $f"; bad=1; }
+  fm_ok "$f" || {
+    faild "missing name/description frontmatter: $f"
+    bad=1
+  }
 done
 [ "$bad" = 0 ] && pass "agents + skills have name + description"
 
@@ -88,22 +121,46 @@ for f in hooks/claude/*.sh; do
   h=$(basename "$f" .sh)
   case " $AG_SUPPORTED_HOOKS " in
     *" $h "*)
-      [ -f "hooks/antigravity/$h.sh" ]              || { faild "no antigravity twin: $h";        bad=1; }
-      [ -d "hooks/tests/fixtures/antigravity/$h" ]  || { faild "no antigravity fixtures: $h";    bad=1; } ;;
+      [ -f "hooks/antigravity/$h.sh" ] || {
+        faild "no antigravity twin: $h"
+        bad=1
+      }
+      [ -d "hooks/tests/fixtures/antigravity/$h" ] || {
+        faild "no antigravity fixtures: $h"
+        bad=1
+      }
+      ;;
   esac
-  [ -d "hooks/tests/fixtures/claude/$h" ] || { faild "no claude fixtures: $h"; bad=1; }
+  [ -d "hooks/tests/fixtures/claude/$h" ] || {
+    faild "no claude fixtures: $h"
+    bad=1
+  }
 done
 [ "$bad" = 0 ] && pass "every hook has its twin + fixtures"
 
 # --- 6. catalog drift ------------------------------------------------------
 group "catalog drift"
 bad=0
-cat_has() {  # slug catalog-file label
-  grep -qF "$1" "$CATALOG/$2" || { faild "$3 '$1' not listed in $2"; bad=1; }
+cat_has() { # slug catalog-file label
+  grep -qF "$1" "$CATALOG/$2" || {
+    faild "$3 '$1' not listed in $2"
+    bad=1
+  }
 }
-for f in agents/*.md; do b=$(basename "$f" .md); [ "$b" = README ] && continue; cat_has "$b" agents-catalog.md agent; done
-for f in rules/*.md;  do b=$(basename "$f" .md); [ "$b" = README ] && continue; cat_has "$b" rules-catalog.md rule;  done
-for f in hooks/claude/*.sh; do b=$(basename "$f" .sh); cat_has "$b" hooks-catalog.md hook; done
+for f in agents/*.md; do
+  b=$(basename "$f" .md)
+  [ "$b" = README ] && continue
+  cat_has "$b" agents-catalog.md agent
+done
+for f in rules/*.md; do
+  b=$(basename "$f" .md)
+  [ "$b" = README ] && continue
+  cat_has "$b" rules-catalog.md rule
+done
+for f in hooks/claude/*.sh; do
+  b=$(basename "$f" .sh)
+  cat_has "$b" hooks-catalog.md hook
+done
 for d in skills/*/; do
   b=$(basename "$d")
   case "$SKILL_CATALOG_EXCLUDE" in *" $b "*) continue ;; esac
@@ -133,13 +190,22 @@ fi
 group "install.sh smoke"
 smoke=$(mktemp -d)
 trap 'rm -rf "$smoke"' EXIT
-if ( cd "$smoke" && bash "$ROOT/install.sh" </dev/null ) >"$smoke/.log" 2>&1; then
+if (cd "$smoke" && bash "$ROOT/install.sh" </dev/null) >"$smoke/.log" 2>&1; then
   ok=1
-  jq empty "$smoke/.claude/settings.json" 2>/dev/null || { faild "smoke: .claude/settings.json missing/invalid"; ok=0; }
+  jq empty "$smoke/.claude/settings.json" 2>/dev/null || {
+    faild "smoke: .claude/settings.json missing/invalid"
+    ok=0
+  }
   for h in block-dangerous-commands scan-secrets protect-files warn-large-files; do
-    [ -f "$smoke/.claude/hooks/$h.sh" ] || { faild "smoke: hook $h not installed"; ok=0; }
+    [ -f "$smoke/.claude/hooks/$h.sh" ] || {
+      faild "smoke: hook $h not installed"
+      ok=0
+    }
   done
-  [ -f "$smoke/CLAUDE.md" ] || { faild "smoke: CLAUDE.md not installed"; ok=0; }
+  [ -f "$smoke/CLAUDE.md" ] || {
+    faild "smoke: CLAUDE.md not installed"
+    ok=0
+  }
   [ "$ok" = 1 ] && pass "install.sh lands .claude/ + settings.json + safety hooks + CLAUDE.md"
 else
   faild "install.sh exited nonzero"
@@ -152,7 +218,8 @@ if command -v claude >/dev/null 2>&1; then
   if cv=$(claude plugin validate . --strict 2>&1); then
     pass "claude plugin validate --strict"
   else
-    faild "claude plugin validate failed"; printf '%s\n' "$cv" | tail -10 | sed 's/^/    /'
+    faild "claude plugin validate failed"
+    printf '%s\n' "$cv" | tail -10 | sed 's/^/    /'
   fi
 else
   skp "claude not installed — --strict manifest validate skipped"
@@ -161,7 +228,8 @@ if command -v agy >/dev/null 2>&1; then
   if av=$(agy plugin validate plugins/setup-agents 2>&1); then
     pass "agy plugin validate plugins/setup-agents"
   else
-    faild "agy plugin validate failed"; printf '%s\n' "$av" | tail -10 | sed 's/^/    /'
+    faild "agy plugin validate failed"
+    printf '%s\n' "$av" | tail -10 | sed 's/^/    /'
   fi
 else
   skp "agy not installed — agy validate skipped"

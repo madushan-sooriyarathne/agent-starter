@@ -79,18 +79,21 @@ Don't skip ahead to guessing:
 - Don't add defensive checks that mask the problem.
 
 In `--fast` mode specifically:
+
 - If the fix needs more than ~50 lines changed, warn the user. This may not actually be a hotfix.
 - Do NOT add features, change formatting, clean up unrelated issues, or add non-essential comments.
 
 ## Step 6: Verify
 
 **Default**:
+
 - Write a test that reproduces the bug and now passes.
 - Run related tests for regressions.
 - Run lint and typecheck.
 - Temporarily revert your fix and confirm the new test fails (proves the test catches the bug).
 
 **--fast**:
+
 - Run only tests directly relevant to the changed code, not the full suite.
 - Run the build.
 - If you can reproduce the original error, verify it's fixed.
@@ -99,11 +102,13 @@ In `--fast` mode specifically:
 ## Step 7: Wrap up or ship
 
 **Default**:
+
 - Create a branch if not already on one.
 - Stage only the fix and test files.
 - Commit: `fix: <what was wrong and why> (#number)`.
 
 **--fast**:
+
 - Stage only the fix files (never secrets, locks, or build output).
 - Draft commit: `hotfix: <short description>`. **ASK** the user to confirm.
 - Push: `git push -u origin hotfix/<description>`.

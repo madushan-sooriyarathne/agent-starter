@@ -38,7 +38,7 @@ ROOT=$(find_project_root)
 # Biome (JS, TS, JSON, CSS all-in-one). Faster than Prettier; check first.
 if [ "$FORMATTED" = false ] && [ -f "$ROOT/node_modules/.bin/biome" ] && { [ -f "$ROOT/biome.json" ] || [ -f "$ROOT/biome.jsonc" ]; }; then
   case "$EXTENSION" in
-    js|jsx|ts|tsx|json|css)
+    js | jsx | ts | tsx | json | css)
       npx biome format --write "$FILE_PATH" >/dev/null 2>&1 && FORMATTED=true
       ;;
   esac
@@ -59,7 +59,7 @@ if [ "$FORMATTED" = false ] && [ -f "$ROOT/node_modules/.bin/prettier" ]; then
 
   if [ "$HAS_PRETTIER_CONFIG" = true ]; then
     case "$EXTENSION" in
-      js|jsx|ts|tsx|json|css|scss|md|yaml|yml|html)
+      js | jsx | ts | tsx | json | css | scss | md | yaml | yml | html)
         npx prettier --write "$FILE_PATH" >/dev/null 2>&1 && FORMATTED=true
         ;;
     esac
@@ -118,6 +118,15 @@ if [ "$FORMATTED" = false ] && command -v gofmt >/dev/null 2>&1; then
   case "$EXTENSION" in
     go)
       gofmt -w "$FILE_PATH" >/dev/null 2>&1 && FORMATTED=true
+      ;;
+  esac
+fi
+
+# Shell (shfmt is standard; honors .editorconfig, no config check needed).
+if [ "$FORMATTED" = false ] && command -v shfmt >/dev/null 2>&1; then
+  case "$EXTENSION" in
+    sh | bash)
+      shfmt -w "$FILE_PATH" >/dev/null 2>&1 && FORMATTED=true
       ;;
   esac
 fi

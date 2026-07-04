@@ -26,31 +26,31 @@ Required token categories: colors (semantic names with dark mode variants), spac
 
 Pick one primary principle. Don't mix randomly.
 
-| Principle | When to use |
-|---|---|
-| **Glassmorphism** | Overlays, modern dashboards |
-| **Neumorphism** | Settings panels, minimal controls |
-| **Brutalism** | Developer tools, editorial sites |
-| **Minimalism** | Portfolios, documentation, content-first |
-| **Maximalism** | Creative agencies, e-commerce |
-| **Claymorphism** | Playful apps, onboarding |
-| **Bento Grid** | Dashboards, feature showcases |
-| **Aurora / Mesh Gradients** | Landing pages, hero sections |
-| **Flat Design** | Mobile apps, system UI |
-| **Material Elevation** | Data-heavy apps, enterprise |
-| **Editorial** | Blogs, long-form content |
+| Principle                   | When to use                              |
+| --------------------------- | ---------------------------------------- |
+| **Glassmorphism**           | Overlays, modern dashboards              |
+| **Neumorphism**             | Settings panels, minimal controls        |
+| **Brutalism**               | Developer tools, editorial sites         |
+| **Minimalism**              | Portfolios, documentation, content-first |
+| **Maximalism**              | Creative agencies, e-commerce            |
+| **Claymorphism**            | Playful apps, onboarding                 |
+| **Bento Grid**              | Dashboards, feature showcases            |
+| **Aurora / Mesh Gradients** | Landing pages, hero sections             |
+| **Flat Design**             | Mobile apps, system UI                   |
+| **Material Elevation**      | Data-heavy apps, enterprise              |
+| **Editorial**               | Blogs, long-form content                 |
 
 ## Component Framework
 
 Use whatever the project already has. Don't mix competing libraries.
 
-| Category | Options (pick one) |
-|---|---|
-| CSS | Tailwind, vanilla CSS, CSS Modules, styled-components, Emotion, UnoCSS, Panda CSS |
-| Primitives | shadcn/ui, Radix, Headless UI, Ark UI, DaisyUI, Mantine, Chakra, Vuetify |
-| Animation | CSS transitions, Framer Motion, GSAP, View Transitions API, AutoAnimate |
-| Charts | Recharts, D3, Chart.js, Visx, ECharts, Nivo |
-| Icons | Lucide, Phosphor, Heroicons, Tabler Icons, Iconify |
+| Category   | Options (pick one)                                                                |
+| ---------- | --------------------------------------------------------------------------------- |
+| CSS        | Tailwind, vanilla CSS, CSS Modules, styled-components, Emotion, UnoCSS, Panda CSS |
+| Primitives | shadcn/ui, Radix, Headless UI, Ark UI, DaisyUI, Mantine, Chakra, Vuetify          |
+| Animation  | CSS transitions, Framer Motion, GSAP, View Transitions API, AutoAnimate           |
+| Charts     | Recharts, D3, Chart.js, Visx, ECharts, Nivo                                       |
+| Icons      | Lucide, Phosphor, Heroicons, Tabler Icons, Iconify                                |
 
 ## Layout
 

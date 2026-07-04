@@ -22,10 +22,10 @@ if [ "$EVENT" = "PostToolUse" ]; then
 
   EXTENSION="${FILE_PATH##*.}"
   case "$EXTENSION" in
-    md|txt|svg|png|jpg|jpeg|gif|ico|css|scss|less|html|lock|sh) exit 0 ;;
+    md | txt | svg | png | jpg | jpeg | gif | ico | css | scss | less | html | lock | sh) exit 0 ;;
   esac
   case "$FILE_PATH" in
-    */.claude/*|*/node_modules/*|*/dist/*|*/build/*|*/.git/*|*/target/*) exit 0 ;;
+    */.claude/* | */node_modules/* | */dist/* | */build/* | */.git/* | */target/*) exit 0 ;;
   esac
 
   mkdir -p "$MARKER_DIR"
@@ -80,20 +80,23 @@ RAN=false
 if [ -f "$ROOT/package.json" ]; then
   if jq -e '.scripts.lint' "$ROOT/package.json" >/dev/null 2>&1; then
     PM=$(detect_pm)
-    OUTPUT=$(cd "$ROOT" && "$PM" run lint 2>&1); EXIT=$?
+    OUTPUT=$(cd "$ROOT" && "$PM" run lint 2>&1)
+    EXIT=$?
     RAN=true
   fi
 fi
 
 # Go: golangci-lint if installed. No fallback (go vet already covered by typecheck-on-stop.sh).
 if [ "$RAN" = false ] && [ -f "$ROOT/go.mod" ] && command -v golangci-lint >/dev/null 2>&1; then
-  OUTPUT=$(cd "$ROOT" && golangci-lint run 2>&1); EXIT=$?
+  OUTPUT=$(cd "$ROOT" && golangci-lint run 2>&1)
+  EXIT=$?
   RAN=true
 fi
 
 # Rust: clippy if installed.
 if [ "$RAN" = false ] && [ -f "$ROOT/Cargo.toml" ] && command -v cargo-clippy >/dev/null 2>&1; then
-  OUTPUT=$(cd "$ROOT" && cargo clippy --all-targets --quiet 2>&1); EXIT=$?
+  OUTPUT=$(cd "$ROOT" && cargo clippy --all-targets --quiet 2>&1)
+  EXIT=$?
   RAN=true
 fi
 

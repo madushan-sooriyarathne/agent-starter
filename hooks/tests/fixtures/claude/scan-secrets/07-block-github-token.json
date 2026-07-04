@@ -1,1 +1,12 @@
-{"name":"github PAT blocked","stdin":{"tool_name":"Write","tool_input":{"file_path":"a.js","content":"ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"}},"expect_exit":2,"expect_stdout_contains":["GitHub token"]}
+{
+  "name": "github PAT blocked",
+  "stdin": {
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "a.js",
+      "content": "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["GitHub token"]
+}

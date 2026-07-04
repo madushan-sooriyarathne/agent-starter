@@ -39,14 +39,16 @@ If there are no changes to review, say so and stop.
 Skip this step if reviewing staged changes or a file. Jump to Step 3.
 
 When reviewing a PR, fetch and check:
+
 - PR title, description/body, author, base branch, head branch
 - `gh pr diff $NUMBER` for the full diff
 - `gh pr checks $NUMBER` for CI status
 - `gh api repos/{owner}/{repo}/pulls/$NUMBER/comments` for review comments
 
 Review the PR itself before the code:
+
 - **Title**: descriptive and under 72 chars?
-- **Description**: explains the *why*? Includes a test plan? Flag if empty or template-only.
+- **Description**: explains the _why_? Includes a test plan? Flag if empty or template-only.
 - **Size**: count changed files and lines. Flag if >500 lines changed (suggest splitting).
 - **Base branch**: targeting the right branch?
 - **CI status**: passing, failing, or pending? If failing, note which checks. Fix CI first.
@@ -56,14 +58,14 @@ Review the PR itself before the code:
 
 Decide which reviewers apply by reading the diff content, not just file paths:
 
-| Reviewer | When to include |
-|---|---|
-| `code-reviewer` | Always. Universal correctness pass. |
+| Reviewer                | When to include                                                                                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code-reviewer`         | Always. Universal correctness pass.                                                                                                                                                   |
 | `silent-failure-hunter` | Any diff touching error handling, catch blocks, fallbacks, retries, or async flows. In practice: almost every code diff. Skip only for pure-docs, config-only, or static-asset diffs. |
-| `pr-test-analyzer` | Tests were added or changed, OR behavior changed without any test change (that absence is itself the finding). Skip for pure-docs or config diffs. |
-| `security-reviewer` | Auth, input handling, queries, tokens, session management, file path construction, SQL or HTML or template strings. |
-| `performance-reviewer` | Endpoints, DB queries, loops over collections, caching, connection management. Skip for pure-docs, config-only, or static-asset diffs. |
-| `doc-reviewer` | `.md` changes, significant docstring or JSDoc changes, API docs. |
+| `pr-test-analyzer`      | Tests were added or changed, OR behavior changed without any test change (that absence is itself the finding). Skip for pure-docs or config diffs.                                    |
+| `security-reviewer`     | Auth, input handling, queries, tokens, session management, file path construction, SQL or HTML or template strings.                                                                   |
+| `performance-reviewer`  | Endpoints, DB queries, loops over collections, caching, connection management. Skip for pure-docs, config-only, or static-asset diffs.                                                |
+| `doc-reviewer`          | `.md` changes, significant docstring or JSDoc changes, API docs.                                                                                                                      |
 
 **Dispatch all applicable reviewers in PARALLEL.** Send one message that contains one Agent/Task tool call per applicable reviewer. Do NOT invoke them sequentially. Parallel dispatch cuts wall-clock time from N times the slowest review to roughly the slowest single review, with no extra token cost. Each call looks like:
 
@@ -163,5 +165,5 @@ For non-PR reviews (staged or file):
 
 - **Deduplicate** findings that overlap between agents; attribute the merged finding to the agent with the most specific evidence.
 - **Confidence buckets**: 90-100 → report as findings to act on; 80-89 → report under a `Consider` subheading; anything an agent shipped below 80 shouldn't exist — drop it.
-- **Deconfliction**: when two agents flag the same lines with different fixes, prefer the more specific domain — security-reviewer over code-reviewer on input handling; performance-reviewer over code-reviewer on complexity *if the path is hot*, code-reviewer otherwise; silent-failure-hunter over code-reviewer on error handling. Never present two conflicting fixes for the same lines without saying which to apply.
+- **Deconfliction**: when two agents flag the same lines with different fixes, prefer the more specific domain — security-reviewer over code-reviewer on input handling; performance-reviewer over code-reviewer on complexity _if the path is hot_, code-reviewer otherwise; silent-failure-hunter over code-reviewer on error handling. Never present two conflicting fixes for the same lines without saying which to apply.
 - Attribute each finding to the agent that found it.

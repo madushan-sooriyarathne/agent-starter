@@ -11,7 +11,10 @@
 
 set -uo pipefail
 
-ok() { printf '{"decision":"ok"}\n'; exit 0; }
+ok() {
+  printf '{"decision":"ok"}\n'
+  exit 0
+}
 
 command -v jq >/dev/null 2>&1 || ok
 
@@ -40,7 +43,7 @@ while IFS= read -r REL; do
   # Biome (JS, TS, JSON, CSS all-in-one). Faster than Prettier; check first.
   if [ "$FORMATTED" = false ] && [ -f "$ROOT/node_modules/.bin/biome" ] && { [ -f "$ROOT/biome.json" ] || [ -f "$ROOT/biome.jsonc" ]; }; then
     case "$EXTENSION" in
-      js|jsx|ts|tsx|json|css)
+      js | jsx | ts | tsx | json | css)
         npx biome format --write "$FILE_PATH" >/dev/null 2>&1 && FORMATTED=true
         ;;
     esac
@@ -61,7 +64,7 @@ while IFS= read -r REL; do
 
     if [ "$HAS_PRETTIER_CONFIG" = true ]; then
       case "$EXTENSION" in
-        js|jsx|ts|tsx|json|css|scss|md|yaml|yml|html)
+        js | jsx | ts | tsx | json | css | scss | md | yaml | yml | html)
           npx prettier --write "$FILE_PATH" >/dev/null 2>&1 && FORMATTED=true
           ;;
       esac
@@ -123,6 +126,15 @@ while IFS= read -r REL; do
         ;;
     esac
   fi
-done <<< "$CHANGED"
+
+  # Shell (shfmt is standard; honors .editorconfig, no config check needed).
+  if [ "$FORMATTED" = false ] && command -v shfmt >/dev/null 2>&1; then
+    case "$EXTENSION" in
+      sh | bash)
+        shfmt -w "$FILE_PATH" >/dev/null 2>&1 && FORMATTED=true
+        ;;
+    esac
+  fi
+done <<<"$CHANGED"
 
 ok

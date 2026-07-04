@@ -13,10 +13,19 @@
 
 set -uo pipefail
 
-allow() { printf '{"decision":"allow"}\n'; exit 0; }
-gate()  { jq -cn --arg d "$1" --arg r "$2" '{decision:$d, reason:$r}'; exit 0; }
+allow() {
+  printf '{"decision":"allow"}\n'
+  exit 0
+}
+gate() {
+  jq -cn --arg d "$1" --arg r "$2" '{decision:$d, reason:$r}'
+  exit 0
+}
 
-command -v jq >/dev/null 2>&1 || { printf '{"decision":"deny","reason":"jq is required for command protection hooks but is not installed."}\n'; exit 0; }
+command -v jq >/dev/null 2>&1 || {
+  printf '{"decision":"deny","reason":"jq is required for command protection hooks but is not installed."}\n'
+  exit 0
+}
 
 INPUT=$(cat)
 COMMAND=$(printf '%s' "$INPUT" | jq -r '.toolCall.args.CommandLine // empty' 2>/dev/null || true)
@@ -53,8 +62,8 @@ if contains_cmd '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
     fi
   fi
   # Force push (but allow --force-with-lease)
-  if contains_cmd 'git[[:space:]]+push([[:space:]]+[^[:space:]]+)*[[:space:]]+(-[a-zA-Z]*f[a-zA-Z]*|--force)([[:space:]=]|$)' \
-     && ! contains_cmd '\-\-force-with-lease'; then
+  if contains_cmd 'git[[:space:]]+push([[:space:]]+[^[:space:]]+)*[[:space:]]+(-[a-zA-Z]*f[a-zA-Z]*|--force)([[:space:]=]|$)' &&
+    ! contains_cmd '\-\-force-with-lease'; then
     gate deny "Blocked: force push is not allowed. Use --force-with-lease if you must overwrite remote."
   fi
 fi
@@ -63,7 +72,7 @@ fi
 # rm -rf targeting root, home, $HOME, $VAR (any unresolved expansion), or parent traversal.
 # We normalise quotes before matching so "my folder", '$HOME/trash', etc. Are all inspected.
 CMD_NOQUOTE=$(printf '%s' "$COMMAND" | tr -d "'\"")
-if printf '%s' "$CMD_NOQUOTE" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]*[[:space:]]+)*-?[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*[[:space:]]+(/([[:space:]]|\*|$)|~|\$HOME|\$[A-Za-z_][A-Za-z0-9_]*|\.\./\.\.)' ; then
+if printf '%s' "$CMD_NOQUOTE" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]*[[:space:]]+)*-?[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*[[:space:]]+(/([[:space:]]|\*|$)|~|\$HOME|\$[A-Za-z_][A-Za-z0-9_]*|\.\./\.\.)'; then
   gate deny "Blocked: recursive force-delete on /, ~, \$HOME, an unresolved \$VAR, or .../.. Path. Specify a concrete safe target."
 fi
 # rm -rf /usr, /etc, /var, /bin, etc.
@@ -92,8 +101,8 @@ fi
 
 # ── Dangerous system commands ───────────────────────────────────────────
 # chmod: any world-writable/universal mode (0?777 or a+rwx)
-if contains_cmd 'chmod([[:space:]]+-[a-zA-Z]+)*[[:space:]]+0?777([[:space:]]|$)' \
-  || contains_cmd 'chmod([[:space:]]+-[a-zA-Z]+)*[[:space:]]+a\+rwx([[:space:]]|$)'; then
+if contains_cmd 'chmod([[:space:]]+-[a-zA-Z]+)*[[:space:]]+0?777([[:space:]]|$)' ||
+  contains_cmd 'chmod([[:space:]]+-[a-zA-Z]+)*[[:space:]]+a\+rwx([[:space:]]|$)'; then
   gate deny "Blocked: chmod 777 / a+rwx grants everyone full access. Use restrictive perms."
 fi
 
@@ -105,12 +114,12 @@ fi
 # Disk / partition. Note: only REDIRECTIONS to /dev/ are destructive. `2>/dev/null` is not.
 # Pattern matches: `>[ ]*/dev/<something>` but NOT `2>/dev/null` or `&>/dev/null` style for fd-null.
 # Strategy: match `>` optionally with whitespace, followed by /dev/<name>, EXCLUDING /dev/null and /dev/stderr/stdout.
-if printf '%s' "$COMMAND" | grep -qE '(^|[^0-9&])>[[:space:]]*/dev/[a-zA-Z][a-zA-Z0-9]*' \
-   && ! printf '%s' "$COMMAND" | grep -qE '>[[:space:]]*/dev/(null|stdout|stderr|tty|zero|random|urandom)([[:space:]]|$)' ; then
+if printf '%s' "$COMMAND" | grep -qE '(^|[^0-9&])>[[:space:]]*/dev/[a-zA-Z][a-zA-Z0-9]*' &&
+  ! printf '%s' "$COMMAND" | grep -qE '>[[:space:]]*/dev/(null|stdout|stderr|tty|zero|random|urandom)([[:space:]]|$)'; then
   gate deny "Blocked: redirection into a raw device file can destroy data."
 fi
-if contains_cmd '(^|[;&|[:space:]])(mkfs|mkfs\.[a-z0-9]+)([[:space:]]|$)' \
-  || contains_cmd '(^|[;&|[:space:]])dd[[:space:]]+[^|]*(if|of)=/dev/[a-zA-Z]' ; then
+if contains_cmd '(^|[;&|[:space:]])(mkfs|mkfs\.[a-z0-9]+)([[:space:]]|$)' ||
+  contains_cmd '(^|[;&|[:space:]])dd[[:space:]]+[^|]*(if|of)=/dev/[a-zA-Z]'; then
   gate deny "Blocked: mkfs/dd against a device node. Irreversible data loss."
 fi
 

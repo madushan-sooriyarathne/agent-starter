@@ -2,7 +2,7 @@
 
 ## Commit messages
 
-Use Conventional Commits: `type(scope): subject`. Types: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `build`, `ci`, `style`. Scope is optional but encouraged and, in a monorepo, should name the affected package (`feat(web): ...`, `fix(api): ...`). Subject is imperative, lowercase, no trailing period, under ~72 characters. Put the *why* in the body when it isn't obvious. One logical change per commit — don't bundle an unrelated refactor into a feature commit.
+Use Conventional Commits: `type(scope): subject`. Types: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `build`, `ci`, `style`. Scope is optional but encouraged and, in a monorepo, should name the affected package (`feat(web): ...`, `fix(api): ...`). Subject is imperative, lowercase, no trailing period, under ~72 characters. Put the _why_ in the body when it isn't obvious. One logical change per commit — don't bundle an unrelated refactor into a feature commit.
 
 Breaking change: mark with `!` before the colon (`feat(api)!: drop v1 endpoints`) or a `BREAKING CHANGE: <description>` footer — either signals a MAJOR bump. Footers go one blank line after the body, as `Token: value` (hyphenate multi-word tokens, e.g. `Refs: PROJ-123`); `BREAKING CHANGE` is the one token kept uppercase.
 

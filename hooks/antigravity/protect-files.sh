@@ -10,10 +10,19 @@
 
 set -uo pipefail
 
-allow() { printf '{"decision":"allow"}\n'; exit 0; }
-gate()  { jq -cn --arg d "$1" --arg r "$2" '{decision:$d, reason:$r}'; exit 0; }
+allow() {
+  printf '{"decision":"allow"}\n'
+  exit 0
+}
+gate() {
+  jq -cn --arg d "$1" --arg r "$2" '{decision:$d, reason:$r}'
+  exit 0
+}
 
-command -v jq >/dev/null 2>&1 || { printf '{"decision":"deny","reason":"jq is required for file protection hooks but is not installed."}\n'; exit 0; }
+command -v jq >/dev/null 2>&1 || {
+  printf '{"decision":"deny","reason":"jq is required for file protection hooks but is not installed."}\n'
+  exit 0
+}
 
 INPUT=$(cat)
 FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.toolCall.args.TargetFile // empty' 2>/dev/null || true)
@@ -59,16 +68,21 @@ done
 
 # Sensitive directories (use lower-cased path for case-insensitive on mac/Windows).
 case "$PATH_LC" in
-  .git/*|*/.git/*)
-    gate deny "Cannot edit files inside .git/" ;;
-  secrets/*|*/secrets/*)
-    gate deny "Cannot edit files inside secrets/" ;;
-  .env|.env.*|*/.env|*/.env.*)
-    gate deny "Cannot edit .env files" ;;
-  .claude/hooks/*|*/.claude/hooks/*)
-    gate deny "Cannot edit hook scripts. These enforce security boundaries." ;;
-  .claude/settings.json|*/.claude/settings.json|.claude/settings.local.json|*/.claude/settings.local.json)
-    gate ask "Editing settings.json. This controls permissions and hooks. Confirm this change." ;;
+  .git/* | */.git/*)
+    gate deny "Cannot edit files inside .git/"
+    ;;
+  secrets/* | */secrets/*)
+    gate deny "Cannot edit files inside secrets/"
+    ;;
+  .env | .env.* | */.env | */.env.*)
+    gate deny "Cannot edit .env files"
+    ;;
+  .claude/hooks/* | */.claude/hooks/*)
+    gate deny "Cannot edit hook scripts. These enforce security boundaries."
+    ;;
+  .claude/settings.json | */.claude/settings.json | .claude/settings.local.json | */.claude/settings.local.json)
+    gate ask "Editing settings.json. This controls permissions and hooks. Confirm this change."
+    ;;
 esac
 
 allow

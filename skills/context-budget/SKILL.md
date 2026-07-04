@@ -25,12 +25,13 @@ Skip any file under `.claude/agents/README.md`, `.claude/rules/README.md`, etc. 
 
 For every `.md` file in `.claude/rules/`, read the YAML frontmatter (the block between the first two `---` lines).
 
-| Frontmatter contains | Classification | Per-turn cost |
-|---|---|---|
-| `paths: [...]` | Path-scoped | Loaded only when working near matched files |
-| No `paths:` (or no frontmatter) | Always-loaded | Every turn |
+| Frontmatter contains            | Classification | Per-turn cost                               |
+| ------------------------------- | -------------- | ------------------------------------------- |
+| `paths: [...]`                  | Path-scoped    | Loaded only when working near matched files |
+| No `paths:` (or no frontmatter) | Always-loaded  | Every turn                                  |
 
 Other categories:
+
 - `./CLAUDE.md` -> always-loaded (by definition).
 - `.claude/skills/<name>/SKILL.md` -> invoked-only (zero per-turn cost; only loads when the user runs `/skill-name` or, if `disable-model-invocation` is unset, when Claude auto-triggers it).
 - `.claude/agents/<name>.md` -> invoked-only and runs in isolated context (per-invocation cost in its own session, not per-turn cost in the main thread).
@@ -98,11 +99,11 @@ End the report with the highest-leverage trim recommendation if any class is ove
 
 ## Budget guidance (used to compute the verdict)
 
-| Class                          | Target              | Hard cap            | Action when over |
-|-------------------------------|--------------------|--------------------|------------------|
-| `CLAUDE.md`                   | <25 non-blank lines | <50 non-blank lines | Trim per Phase 4 of `/setup-agents`. |
-| Each always-loaded rule       | <30 lines, ~250 tok | n/a                 | Push content to a path-scoped rule or into an agent. |
-| Total always-loaded           | <1000 tokens        | <1500 tokens        | Identify the single biggest contributor and trim it. |
+| Class                   | Target              | Hard cap            | Action when over                                     |
+| ----------------------- | ------------------- | ------------------- | ---------------------------------------------------- |
+| `CLAUDE.md`             | <25 non-blank lines | <50 non-blank lines | Trim per Phase 4 of `/setup-agents`.                 |
+| Each always-loaded rule | <30 lines, ~250 tok | n/a                 | Push content to a path-scoped rule or into an agent. |
+| Total always-loaded     | <1000 tokens        | <1500 tokens        | Identify the single biggest contributor and trim it. |
 
 ## Caveats to mention in the report
 

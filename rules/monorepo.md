@@ -16,7 +16,7 @@ Each package owns a clear responsibility (`apps/*` are deployables; `packages/*`
 
 ## No cross-package relative imports
 
-Never import across package boundaries with `../` relative paths (e.g. `import { x } from "../../packages/ui/src/..."`). Import by the workspace package name instead (`import { x } from "@acme/ui"`). Relative imports are fine *within* a single package. Add the dependency to that package's `package.json` (using the `workspace:*` protocol) so the boundary is explicit and the build graph is correct.
+Never import across package boundaries with `../` relative paths (e.g. `import { x } from "../../packages/ui/src/..."`). Import by the workspace package name instead (`import { x } from "@acme/ui"`). Relative imports are fine _within_ a single package. Add the dependency to that package's `package.json` (using the `workspace:*` protocol) so the boundary is explicit and the build graph is correct.
 
 ## Dependencies & tooling
 

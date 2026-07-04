@@ -37,9 +37,9 @@ single host, tell the user to use `/setup-claude` or `/setup-agy`.
 2. **Materialize both.** With the plan approved, apply it to each host:
    - `references/materialize-claude.md` → `.claude/` + `CLAUDE.md`
    - `references/materialize-agy.md` → `.agents/` + `AGENTS.md`
-   The two trees are written independently — real files in each, no symlinks
-   between them. Rules and project-doc content are identical across hosts but are
-   deliberately written twice (portable, no symlink fragility).
+     The two trees are written independently — real files in each, no symlinks
+     between them. Rules and project-doc content are identical across hosts but are
+     deliberately written twice (portable, no symlink fragility).
 3. **One combined report.** Merge both materializers' checks into a single
    summary (installed / skipped / removed). Tell the user to restart Claude Code
    **and** reload Antigravity.

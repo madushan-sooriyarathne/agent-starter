@@ -49,12 +49,14 @@ For EACH scenario identified above, write a test. No skipping.
 ### What to Test
 
 **Pure functions / business logic:**
+
 - Every branch (if/else, switch, ternary)
 - Every thrown error with exact error type and message
 - Return value types and shapes
 - Side effects (mutations, calls to external services)
 
 **API endpoints / handlers:**
+
 - Success response (status code, body shape, headers)
 - Validation errors for each field (missing, wrong type, out of range)
 - Authentication/authorization failures
@@ -62,6 +64,7 @@ For EACH scenario identified above, write a test. No skipping.
 - Idempotency for non-GET methods
 
 **UI components (if applicable):**
+
 - Renders without crashing with required props
 - Renders correct content for each state (loading, error, empty, populated)
 - User interactions trigger correct callbacks (click, submit, type, select)
@@ -69,12 +72,14 @@ For EACH scenario identified above, write a test. No skipping.
 - Conditional rendering. Each branch shows/hides correct elements
 
 **Database / data layer:**
+
 - CRUD operations return correct data
 - Unique constraints reject duplicates
 - Cascade deletes work as expected
 - Transactions roll back on failure
 
 **Async operations:**
+
 - Successful resolution
 - Rejection / error handling
 - Timeout behavior

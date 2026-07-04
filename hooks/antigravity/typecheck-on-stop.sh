@@ -18,8 +18,14 @@
 
 set -uo pipefail
 
-ok()   { printf '{"decision":"ok"}\n'; exit 0; }
-cont() { jq -cn --arg r "$1" '{decision:"continue", reason:$r}'; exit 0; }
+ok() {
+  printf '{"decision":"ok"}\n'
+  exit 0
+}
+cont() {
+  jq -cn --arg r "$1" '{decision:"continue", reason:$r}'
+  exit 0
+}
 
 command -v jq >/dev/null 2>&1 || ok
 
@@ -65,20 +71,23 @@ if [ -f "$ROOT/package.json" ]; then
   fi
   if [ -n "$SCRIPT" ]; then
     PM=$(detect_pm)
-    OUTPUT=$(cd "$ROOT" && "$PM" run "$SCRIPT" 2>&1); EXIT=$?
+    OUTPUT=$(cd "$ROOT" && "$PM" run "$SCRIPT" 2>&1)
+    EXIT=$?
     RAN=true
   fi
 fi
 
 # Go: vet does the type-checking job, no separate typecheck command exists.
 if [ "$RAN" = false ] && [ -f "$ROOT/go.mod" ] && command -v go >/dev/null 2>&1; then
-  OUTPUT=$(cd "$ROOT" && go vet ./... 2>&1); EXIT=$?
+  OUTPUT=$(cd "$ROOT" && go vet ./... 2>&1)
+  EXIT=$?
   RAN=true
 fi
 
 # Rust: cargo check is the type-check, no codegen.
 if [ "$RAN" = false ] && [ -f "$ROOT/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
-  OUTPUT=$(cd "$ROOT" && cargo check --quiet 2>&1); EXIT=$?
+  OUTPUT=$(cd "$ROOT" && cargo check --quiet 2>&1)
+  EXIT=$?
   RAN=true
 fi
 

@@ -10,8 +10,14 @@
 
 set -uo pipefail
 
-allow() { printf '{"decision":"allow"}\n'; exit 0; }
-gate()  { jq -cn --arg d "$1" --arg r "$2" '{decision:$d, reason:$r}'; exit 0; }
+allow() {
+  printf '{"decision":"allow"}\n'
+  exit 0
+}
+gate() {
+  jq -cn --arg d "$1" --arg r "$2" '{decision:$d, reason:$r}'
+  exit 0
+}
 
 # Requires jq for JSON parsing. Fail open if missing (not a file-protection hook).
 command -v jq >/dev/null 2>&1 || allow
@@ -21,13 +27,17 @@ TOOL=$(printf '%s' "$INPUT" | jq -r '.toolCall.name // empty')
 
 case "$TOOL" in
   write_to_file)
-    CONTENT=$(printf '%s' "$INPUT" | jq -r '.toolCall.args.CodeContent // empty') ;;
+    CONTENT=$(printf '%s' "$INPUT" | jq -r '.toolCall.args.CodeContent // empty')
+    ;;
   replace_file_content)
-    CONTENT=$(printf '%s' "$INPUT" | jq -r '.toolCall.args.ReplacementContent // empty') ;;
+    CONTENT=$(printf '%s' "$INPUT" | jq -r '.toolCall.args.ReplacementContent // empty')
+    ;;
   multi_replace_file_content)
-    CONTENT=$(printf '%s' "$INPUT" | jq -r '[.toolCall.args.ReplacementChunks[]?.ReplacementContent] | join("\n")') ;;
+    CONTENT=$(printf '%s' "$INPUT" | jq -r '[.toolCall.args.ReplacementChunks[]?.ReplacementContent] | join("\n")')
+    ;;
   *)
-    allow ;;
+    allow
+    ;;
 esac
 
 [ -z "$CONTENT" ] && allow
@@ -74,8 +84,8 @@ fi
 # Generic password/secret/token assignments with literal string values
 # Matches: password = "actual_value", SECRET_KEY: 'actual_value', api_token="actual_value"
 # Excludes: env var references like process.env.*, os.environ.*, ${...}, getenv(...)
-if echo "$CONTENT" | grep -qiE '(password|secret|token|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*["'\''"][^"'\''"]{8,}["'\''"]' && \
-   ! echo "$CONTENT" | grep -qiE '(password|secret|token|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*["'\''"]?(process\.env|os\.environ|getenv|\$\{|ENV\[|env\()'; then
+if echo "$CONTENT" | grep -qiE '(password|secret|token|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*["'\''"][^"'\''"]{8,}["'\''"]' &&
+  ! echo "$CONTENT" | grep -qiE '(password|secret|token|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*["'\''"]?(process\.env|os\.environ|getenv|\$\{|ENV\[|env\()'; then
   MATCHES="$MATCHES hardcoded credential;"
 fi
 

@@ -16,9 +16,11 @@ Otherwise (the default), produce only sections 1 and 2 and stop. Day-to-day that
 ## Sections
 
 ### 1. One-sentence summary
+
 What does it do, and why does it exist? One sentence.
 
 ### 2. Mental model
+
 An analogy or metaphor that captures the core idea. Relate it to something the developer already knows. One short paragraph.
 
 ### 3. Visual diagram (verbose only)

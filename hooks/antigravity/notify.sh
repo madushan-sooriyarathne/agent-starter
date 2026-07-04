@@ -12,7 +12,10 @@
 
 set -uo pipefail
 
-ok() { printf '{"decision":"ok"}\n'; exit 0; }
+ok() {
+  printf '{"decision":"ok"}\n'
+  exit 0
+}
 
 # Can't tell fullyIdle without jq -- default to not notifying rather than guessing.
 command -v jq >/dev/null 2>&1 || ok

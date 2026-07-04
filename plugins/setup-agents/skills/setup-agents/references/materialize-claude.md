@@ -48,8 +48,8 @@ Apply the approved plan exactly:
     `graphify install --project`, append the graph-report CLAUDE.md snippet from the
     catalog, then tell the user to run `/graphify .` in Claude Code to build the graph
     and to commit `graphify-out/` so teammates share it.
-  Treat all third-party plugin install failures as non-fatal — log the failure, skip
-  that plugin, and continue.
+    Treat all third-party plugin install failures as non-fatal — log the failure, skip
+    that plugin, and continue.
 - **Skills:** handle the two groups separately:
   - **Bundled skills:** no action required — they are already available via the plugin.
     Log each selected bundled skill as "available (bundled)" in the summary.

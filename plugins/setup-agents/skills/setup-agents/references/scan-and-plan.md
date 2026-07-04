@@ -31,13 +31,13 @@ not an essay.
 Source files live under `template/` at the plugin bundle root: `agents/`,
 `rules/`, `hooks/`, `CLAUDE.md`, `settings.json`, and the catalogs in
 `skills/setup-agents/references/`. Resolve the bundle root per host you are
-running in (this is about *reading* the plugin's own files — it is independent
-of `TARGETS`, which only decides what gets *written*):
+running in (this is about _reading_ the plugin's own files — it is independent
+of `TARGETS`, which only decides what gets _written_):
 
 - **Claude Code** — `${CLAUDE_PLUGIN_ROOT}` (env var is always set). Catalogs
   and this file are at `${CLAUDE_PLUGIN_ROOT}/skills/setup-agents/references/`.
 - **Antigravity** — no equivalent env var is exposed to skills. `agy plugin
-  install` stages the whole plugin tree verbatim under
+install` stages the whole plugin tree verbatim under
   `~/.gemini/config/plugins/setup-agents/`, so read `template/` and
   `skills/setup-agents/references/` from there. If that path doesn't exist,
   walk up from this file's own directory until you find a sibling `plugin.json`
@@ -49,6 +49,7 @@ Inspect the CWD and record what you find. Don't stop at manifests — open a
 handful of real source/test files when a signal is ambiguous.
 
 **Stack manifests** (any present):
+
 - `package.json` (read it: dependencies, `name`/`description`, scripts)
 - `pyproject.toml`, `requirements.txt` → Python
 - `go.mod` → Go
@@ -60,6 +61,7 @@ handful of real source/test files when a signal is ambiguous.
 - CI workflows: `.github/workflows/`, `.gitlab-ci.yml` — record real job commands
 
 **JS/TS-specific signals:**
+
 - `pnpm-workspace.yaml`, `turbo.json`, `lerna.json`, `nx.json`, or multiple
   manifests at depth 2+ → monorepo (list the packages)
 - `next.config.*` → Next.js
@@ -74,6 +76,7 @@ handful of real source/test files when a signal is ambiguous.
 - `tailwindcss` dep (v4) or `@theme` block in a CSS file → Tailwind
 
 **Cross-language signals (drive catalog rows, not just JS):**
+
 - Source layout: list the real source dirs found (`src/`, `app/`, `lib/`,
   `packages/*/src`, `cmd/`, `internal/`, ...) — these become rule `paths:`
   rewrites in materialization, never assume `src/` blindly.
@@ -144,7 +147,7 @@ Packages
 
 (The values above are an example; fill in only what the scan actually found.)
 
-Then ask one `AskUserQuestion`: **Accept** / **Correct it**. On *Correct it*,
+Then ask one `AskUserQuestion`: **Accept** / **Correct it**. On _Correct it_,
 take the user's edits, patch `detectedStack`, re-render the summary, and re-ask
 until accepted. Do not proceed until the stack is confirmed.
 
@@ -169,11 +172,12 @@ with four options, each stating what's in and out:
 from the catalogs, skip all per-category prompts, and go straight to Step 3's
 plan table. Render the table (the contract still holds), then install without
 further questions **except** when one of these fires — only then stop and ask:
+
 - a required system dep is missing (`uv`/`pipx` for Graphify, `bunx` for
   skills, `gh auth` for a private skill repo), or
 - a crucial/destructive action is pending (overwriting an existing project doc,
   or overwriting/removing existing files in gap-analysis mode).
-Otherwise apply the whole plan and report at the end.
+  Otherwise apply the whole plan and report at the end.
 
 **Let me check** → proceed to Step 2.
 
@@ -227,16 +231,16 @@ gap-analysis mode, everything flagged for removal). When `TARGETS` has both
 hosts, one plan drives both — note the target set in the table caption
 (e.g. "Targets: Claude Code + Antigravity"):
 
-| Component | Action | Evidence | Cost class |
-|---|---|---|---|
-| `security-reviewer` (agent) | install | API routes detected in `src/api/` | invoked-only |
-| `security.md` (rule) | install | `src/auth/`, `src/middleware/` found | path-scoped |
-| `testing.md` (rule) | install | `vitest.config.ts` + `*.test.ts` found | always-loaded (no `paths:`) |
-| `block-dangerous-commands` (hook) | install | always-on safety | hook — no context cost |
-| `caveman` (plugin) | install | default selected; user confirmed | project-doc snippet |
-| `graphify` (plugin) | skip | `uv`/`pipx` not found on PATH | — |
-| `pr-review` (skill) | skip | no GitHub remote / `gh` not installed | — |
-| `old-custom-rule.md` (rule) | remove | no longer justified by scan; not in approved selection | — |
+| Component                         | Action  | Evidence                                               | Cost class                  |
+| --------------------------------- | ------- | ------------------------------------------------------ | --------------------------- |
+| `security-reviewer` (agent)       | install | API routes detected in `src/api/`                      | invoked-only                |
+| `security.md` (rule)              | install | `src/auth/`, `src/middleware/` found                   | path-scoped                 |
+| `testing.md` (rule)               | install | `vitest.config.ts` + `*.test.ts` found                 | always-loaded (no `paths:`) |
+| `block-dangerous-commands` (hook) | install | always-on safety                                       | hook — no context cost      |
+| `caveman` (plugin)                | install | default selected; user confirmed                       | project-doc snippet         |
+| `graphify` (plugin)               | skip    | `uv`/`pipx` not found on PATH                          | —                           |
+| `pr-review` (skill)               | skip    | no GitHub remote / `gh` not installed                  | —                           |
+| `old-custom-rule.md` (rule)       | remove  | no longer justified by scan; not in approved selection | —                           |
 
 Cost class: `invoked-only` for agents/skills, `path-scoped` for rules with
 `paths:` frontmatter, `always-loaded` for rules without it, `hook` for hooks

@@ -43,6 +43,7 @@ Repeat this cycle for each behavior. Never skip steps.
 ## Choosing What to Test Next
 
 Work from simple to complex:
+
 1. **Degenerate cases**. Null input, empty collection, zero
 2. **Happy path**. The simplest valid input
 3. **Variations**. Different valid inputs that exercise different branches
@@ -63,6 +64,7 @@ Each test should require a small code change. If you need to write more than ~10
 ## Output
 
 After each cycle, briefly state:
+
 - **Test**: what behavior was added
 - **Code**: what changed to make it pass
 - **Refactor**: what was cleaned up (or "none needed")

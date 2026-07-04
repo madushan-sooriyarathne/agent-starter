@@ -1,22 +1,22 @@
 {
-	"$schema": "https://json.schemastore.org/claude-code-marketplace.json",
-	"name": "agent-starter",
-	"owner": {
-		"name": "Madushan Sooriyarathne",
-		"email": "hello@madushan.dev"
-	},
-	"description": "A tool to scaffold .claude config for new projecs",
-	"plugins": [
-		{
-			"name": "setup-agents",
-			"source": "./plugins/setup-agents",
-			"description": "Set up agent-starter for Claude Code (.claude/) or Antigravity (.agents/). Deep-scans the codebase, interviews you, then installs and customizes only the components the project actually needs.",
-			"author": {
-				"name": "Madushan Sooriyarathne",
-				"email": "hello@madushan.dev"
-			},
-			"keywords": ["setup", "bootstrap", "configuration"],
-			"category": "productivity"
-		}
-	]
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "agent-starter",
+  "owner": {
+    "name": "Madushan Sooriyarathne",
+    "email": "hello@madushan.dev"
+  },
+  "description": "A tool to scaffold .claude config for new projecs",
+  "plugins": [
+    {
+      "name": "setup-agents",
+      "source": "./plugins/setup-agents",
+      "description": "Set up agent-starter for Claude Code (.claude/) or Antigravity (.agents/). Deep-scans the codebase, interviews you, then installs and customizes only the components the project actually needs.",
+      "author": {
+        "name": "Madushan Sooriyarathne",
+        "email": "hello@madushan.dev"
+      },
+      "keywords": ["setup", "bootstrap", "configuration"],
+      "category": "productivity"
+    }
+  ]
 }

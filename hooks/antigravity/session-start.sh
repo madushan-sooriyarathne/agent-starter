@@ -36,18 +36,27 @@ if [ "${AGENT_STARTER_FINGERPRINT:-0}" = "1" ]; then
   exit 0
 fi
 
-command -v jq >/dev/null 2>&1 || { printf '{}\n'; exit 0; }
+command -v jq >/dev/null 2>&1 || {
+  printf '{}\n'
+  exit 0
+}
 
 INPUT=$(cat)
 INVOCATION_NUM=$(printf '%s' "$INPUT" | jq -r '.invocationNum // -1')
 # Cheap bail: only act on the very first model call of the conversation.
-[ "$INVOCATION_NUM" = "0" ] || { printf '{}\n'; exit 0; }
+[ "$INVOCATION_NUM" = "0" ] || {
+  printf '{}\n'
+  exit 0
+}
 
 ROOT=$(printf '%s' "$INPUT" | jq -r '.workspacePaths[0] // empty')
 [ -z "$ROOT" ] && ROOT="$PWD"
 
 # Bail early if not in a git repo (nothing useful to inject).
-git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || { printf '{}\n'; exit 0; }
+git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || {
+  printf '{}\n'
+  exit 0
+}
 
 VERBOSE="${AGENT_STARTER_SESSION_VERBOSE:-0}"
 CONTEXT=""

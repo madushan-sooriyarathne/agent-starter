@@ -74,22 +74,22 @@ run_case() {
       else
         grep -qF -- "$sub" "$file" && ok=0
       fi
-      i=$((i+1))
+      i=$((i + 1))
     done
   }
 
-  check_subs "expect_stdout_contains"     "$out_file" "no"
+  check_subs "expect_stdout_contains" "$out_file" "no"
   check_subs "expect_stdout_not_contains" "$out_file" "yes"
-  check_subs "expect_stderr_contains"     "$err_file" "no"
+  check_subs "expect_stderr_contains" "$err_file" "no"
 
   if [[ $ok -eq 1 ]]; then
     printf '  PASS  %s/%s :: %s\n' "$host" "$hook_name" "$name"
-    PASS=$((PASS+1))
+    PASS=$((PASS + 1))
   else
     printf '  FAIL  %s/%s :: %s (exit=%s, expected=%s)\n' "$host" "$hook_name" "$name" "$actual_exit" "$expect_exit"
     printf '        stdout: %s\n' "$(head -c 500 "$out_file")"
     [[ -s "$err_file" ]] && printf '        stderr: %s\n' "$(head -c 500 "$err_file")"
-    FAIL=$((FAIL+1))
+    FAIL=$((FAIL + 1))
     FAILED_NAMES+=("$host/$hook_name::$name")
   fi
   rm -f "$out_file" "$err_file"

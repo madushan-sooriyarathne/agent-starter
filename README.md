@@ -7,7 +7,7 @@ A Claude Code plugin marketplace shipping one plugin — `setup-agents` — that
 | Host        | Layout                                                         | Components ported                           |
 | ----------- | -------------------------------------------------------------- | ------------------------------------------- |
 | Claude Code | `.claude/{agents,rules,hooks}` + `settings.json` + `CLAUDE.md` | all                                         |
-| Antigravity | `.agents/{skills,rules,hooks}` + `hooks.json` + `AGENTS.md`     | rules, agents→skills, all 10 hooks (native) |
+| Antigravity | `.agents/{skills,rules,hooks}` + `hooks.json` + `AGENTS.md`    | rules, agents→skills, all 10 hooks (native) |
 
 On Antigravity, agents ship as **skills** (auto `/<name>` slash commands — Antigravity subagents have no static file format). All 10 hooks port, each as its own native implementation under `hooks/antigravity/` — duplicated logic, not a shim translating the Claude-shaped `hooks/claude/` scripts. The 4 safety hooks map 1:1 onto Antigravity's `PreToolUse` (`{toolCall}`→`{decision,reason}`); the other 6 needed a redesign since Antigravity's `PostToolUse` carries no tool args at all — they run on `Stop`/`PreInvocation` instead, using live `git status`/`git diff` in place of a per-edit marker. See `hooks/README.md` for the per-hook breakdown and open risks.
 
@@ -17,11 +17,11 @@ On Antigravity, agents ship as **skills** (auto `/<name>` slash commands — Ant
 
 Three slash commands, host-independent — each hard-targets a host set regardless of where it runs, scans the project, recommends the right subset, and installs only what the evidence justifies. On an existing config each runs as a gap analysis.
 
-| Command | Targets | Writes |
-|---|---|---|
+| Command         | Targets                       | Writes                                                    |
+| --------------- | ----------------------------- | --------------------------------------------------------- |
 | `/setup-agents` | Claude Code **+** Antigravity | `.claude/` + `CLAUDE.md` **and** `.agents/` + `AGENTS.md` |
-| `/setup-claude` | Claude Code only | `.claude/` + `CLAUDE.md` (even from Antigravity) |
-| `/setup-agy`    | Antigravity only | `.agents/` + `AGENTS.md` (even from Claude Code) |
+| `/setup-claude` | Claude Code only              | `.claude/` + `CLAUDE.md` (even from Antigravity)          |
+| `/setup-agy`    | Antigravity only              | `.agents/` + `AGENTS.md` (even from Claude Code)          |
 
 The scan/confirm/plan logic is shared (`skills/setup-agents/references/scan-and-plan.md`); the three skills differ only in which host tree(s) they materialize. For the both-host mode, the two trees are written independently as real files — no symlinks between them.
 
@@ -178,7 +178,7 @@ Copies `templates/CLAUDE.template.md` to `./CLAUDE.md` (asks before overwriting)
 ## Plugin marketplace
 
 The marketplace ships a single plugin, `setup-agents`. Everything else — agents,
-skills, rules, hooks — is delivered into your project *through* `/setup-agents`,
+skills, rules, hooks — is delivered into your project _through_ `/setup-agents`,
 not installed as standalone plugins.
 
 ```bash

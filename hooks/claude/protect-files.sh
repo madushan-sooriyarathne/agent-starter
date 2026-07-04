@@ -61,16 +61,21 @@ done
 
 # Sensitive directories (use lower-cased path for case-insensitive on mac/Windows).
 case "$PATH_LC" in
-  .git/*|*/.git/*)
-    emit deny "Cannot edit files inside .git/" ;;
-  secrets/*|*/secrets/*)
-    emit deny "Cannot edit files inside secrets/" ;;
-  .env|.env.*|*/.env|*/.env.*)
-    emit deny "Cannot edit .env files" ;;
-  .claude/hooks/*|*/.claude/hooks/*)
-    emit deny "Cannot edit hook scripts. These enforce security boundaries." ;;
-  .claude/settings.json|*/.claude/settings.json|.claude/settings.local.json|*/.claude/settings.local.json)
-    emit ask "Editing settings.json. This controls permissions and hooks. Confirm this change." ;;
+  .git/* | */.git/*)
+    emit deny "Cannot edit files inside .git/"
+    ;;
+  secrets/* | */secrets/*)
+    emit deny "Cannot edit files inside secrets/"
+    ;;
+  .env | .env.* | */.env | */.env.*)
+    emit deny "Cannot edit .env files"
+    ;;
+  .claude/hooks/* | */.claude/hooks/*)
+    emit deny "Cannot edit hook scripts. These enforce security boundaries."
+    ;;
+  .claude/settings.json | */.claude/settings.json | .claude/settings.local.json | */.claude/settings.local.json)
+    emit ask "Editing settings.json. This controls permissions and hooks. Confirm this change."
+    ;;
 esac
 
 exit 0

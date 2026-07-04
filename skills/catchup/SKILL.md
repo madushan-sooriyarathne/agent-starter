@@ -46,17 +46,21 @@ Write `.claude/HANDOFF.md` capturing THIS session for the next one. Keep it unde
 # Handoff — <date> — <branch>
 
 ## Goal
+
 <what this work is trying to achieve, one line>
 
 ## State
+
 - Done: <completed + verified>
 - In flight: <started, not finished — exact file/function>
 - Untouched: <known remaining scope>
 
 ## Gotchas
+
 - <what failed and why, dead ends not to repeat, surprising constraints>
 
 ## Next step
+
 <the single concrete action to take first>
 ```
 

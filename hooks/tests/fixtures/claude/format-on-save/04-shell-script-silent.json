@@ -1,0 +1,10 @@
+{
+  "name": "shell script routes to shfmt, formats silently (zero tokens, no mutation on canonical input)",
+  "stdin": {
+    "tool_input": {
+      "file_path": "hooks/tests/fixtures/claude/format-on-save/sample.sh"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["formatted", "error"]
+}

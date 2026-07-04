@@ -12,30 +12,31 @@ All three are **pre-marked by default** (user must explicitly deselect).
 
 ### Caveman — ultra-compressed communication mode
 
-| Field         | Value |
-|---------------|-------|
-| Repo          | `https://github.com/JuliusBrussee/caveman` |
-| Install cmd   | `bunx skills add JuliusBrussee/caveman -a <adapter> -y` (`<adapter>` = `claude-code` under Claude Code, `antigravity-cli` under Antigravity) |
-| Scope         | Project (skills CLI writes to `.claude/skills/` or `.agents/skills/` per adapter) |
-| Default       | ✅ pre-selected |
+| Field       | Value                                                                                                                                        |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repo        | `https://github.com/JuliusBrussee/caveman`                                                                                                   |
+| Install cmd | `bunx skills add JuliusBrussee/caveman -a <adapter> -y` (`<adapter>` = `claude-code` under Claude Code, `antigravity-cli` under Antigravity) |
+| Scope       | Project (skills CLI writes to `.claude/skills/` or `.agents/skills/` per adapter)                                                            |
+| Default     | ✅ pre-selected                                                                                                                              |
 
 **Post-install — append to the host context file (`CLAUDE.md`, or `AGENTS.md` under
 Antigravity):**
 
 ```markdown
 # Communication style
+
 Use caveman mode for all responses: drop articles, drop filler words, fragments OK.
 Activate with `/caveman` at session start (or load via skill).
 ```
 
 ### Ponytail — lazy senior developer mode (YAGNI enforcer)
 
-| Field         | Value |
-|---------------|-------|
-| Repo          | `https://github.com/DietrichGebert/ponytail` |
-| Install cmd   | In-session: `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail` |
-| Scope         | User-scoped (Claude Code plugin system; no `--project` flag available) |
-| Default       | ✅ pre-selected |
+| Field       | Value                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------ |
+| Repo        | `https://github.com/DietrichGebert/ponytail`                                                           |
+| Install cmd | In-session: `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail` |
+| Scope       | User-scoped (Claude Code plugin system; no `--project` flag available)                                 |
+| Default     | ✅ pre-selected                                                                                        |
 
 > **Note:** Ponytail uses the Claude Code native plugin system which installs to `~/.claude/`
 > (user scope), not the project `.claude/`. This means it is available across all projects
@@ -45,6 +46,7 @@ Activate with `/caveman` at session start (or load via skill).
 
 ```markdown
 # Build discipline
+
 Apply ponytail (YAGNI) discipline: stop at the first rung of the ladder that holds.
 No speculative abstractions, no boilerplate for later. Activate with `/ponytail` or
 load via the ponytail skill.
@@ -52,21 +54,23 @@ load via the ponytail skill.
 
 **Post-install instruction to user:**
 Tell the user to run these two commands in a Claude Code session in their project:
+
 ```
 /plugin marketplace add DietrichGebert/ponytail
 /plugin install ponytail@ponytail
 ```
+
 Then restart Claude Code.
 
 ### Graphify — codebase knowledge graph
 
-| Field         | Value |
-|---------------|-------|
-| Repo          | `https://github.com/safishamsi/graphify` |
-| Install cmd   | `uv tool install graphifyy` (system-level) then `graphify install --project` |
-| Scope         | System tool + project CLAUDE.md config |
-| Default       | ✅ pre-selected |
-| Prerequisite  | Python 3.10+ and `uv`, `pipx`, or `pip` on PATH |
+| Field        | Value                                                                        |
+| ------------ | ---------------------------------------------------------------------------- |
+| Repo         | `https://github.com/safishamsi/graphify`                                     |
+| Install cmd  | `uv tool install graphifyy` (system-level) then `graphify install --project` |
+| Scope        | System tool + project CLAUDE.md config                                       |
+| Default      | ✅ pre-selected                                                              |
+| Prerequisite | Python 3.10+ and `uv`, `pipx`, or `pip` on PATH                              |
 
 **Install sequence (run from project directory):**
 
@@ -88,6 +92,7 @@ with a note to install `uv` first (`curl -LsSf https://astral.sh/uv/install.sh |
 
 ```markdown
 # Codebase graph
+
 Before searching raw files for architecture questions, read `graphify-out/GRAPH_REPORT.md`
 for god nodes and community structure. Use it to locate high-impact files before grepping.
 ```
