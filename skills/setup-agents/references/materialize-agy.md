@@ -46,11 +46,15 @@ Three differences from the Claude path that matter:
   found in Step 1). When `TARGETS` also has `claude`, this is a second, real
   copy — not a symlink to `.claude/rules/`.
 - **Agents** → `.agents/skills/<name>/SKILL.md` per the conversion above.
-- **Skills** (bundled + external) → `.agents/skills/`. Bundled skills are already
-  available; external skills install via
-  `bunx skills add <repo-url> --skill <skill-name> -a antigravity-cli -y`, which
-  writes `.agents/skills/` directly. Private repos need `gh auth` — treat an auth
-  failure as non-fatal and continue.
+- **Skills** → `.agents/skills/`. Handle the two groups separately:
+  - **Bundled skills:** no action required — already available via the plugin. Log
+    each selected bundled skill as "available (bundled)" in the summary.
+  - **External skills:** for each selected external skill, run
+    `bunx skills add <repo-url> --skill <skill-name> -a antigravity-cli -y` from the
+    project directory (repo URL and skill name from the "External Skills" table in
+    `references/skills-catalog.md` — always both a repo URL and `--skill`; never the
+    display name alone) → writes `.agents/skills/` directly. Do **not** use the caveman-style repo-shorthand form here — that omits
+    `--skill` only because caveman is a single-skill third-party-plugin repo (below).
 - **Third-party plugins:** read `references/third-party-plugins-catalog.md`.
   - **Caveman:** run `bunx skills add JuliusBrussee/caveman -a antigravity-cli -y`
     from the project directory → lands in `.agents/skills/`. Then append the caveman
@@ -60,7 +64,7 @@ Three differences from the Claude path that matter:
     (`uv` → `pipx` → `pip`), then `graphify install --project`, append the graph-report
     snippet to `AGENTS.md`, and tell the user to run `/graphify .` and commit
     `graphify-out/`.
-  Treat all third-party plugin install failures as non-fatal.
+    Treat all third-party plugin install failures as non-fatal.
 - **Hooks** → copy each supported hook's native script from
   `${BUNDLE}/hooks/antigravity/<name>.sh` (not the `hooks/claude/` one —
   Antigravity gets its own duplicated-logic implementation, no translation shim)
