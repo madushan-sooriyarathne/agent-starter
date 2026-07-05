@@ -29,8 +29,8 @@ not an essay.
 ## Resolving the bundle root
 
 Source files live under `template/` at the plugin bundle root: `agents/`,
-`rules/`, `hooks/`, `CLAUDE.md`, `settings.json`, and the catalogs in
-`skills/setup-agents/references/`. Resolve the bundle root per host you are
+`rules/`, `hooks/`, `skills/` (bundled + workflow SKILL.md sources), `CLAUDE.md`,
+`settings.json`, and the catalogs in `skills/setup-agents/references/`. Resolve the bundle root per host you are
 running in (this is about _reading_ the plugin's own files — it is independent
 of `TARGETS`, which only decides what gets _written_):
 
@@ -166,16 +166,25 @@ out:
 
 - **Minimal** — project-doc template + the four safety hooks only
   (`block-dangerous-commands`, `scan-secrets`, `protect-files`,
-  `warn-large-files`). Excludes all agents, rules, additional skills, and
-  third-party plugins.
+  `warn-large-files`). Excludes all agents, rules, additional skills, the
+  workflow commands, and third-party plugins.
 - **Standard (Recommended)** — read all 6 catalogs silently, apply every
   "Recommend when" rule against the scan, and build the recommended selection
-  (bundled skills marked as already available, external skills queued for
-  install). Excludes catalog items with no supporting evidence.
-- **Full** — every item in all 6 catalogs plus Graphify (the one third-party plugin;
-  caveman + ponytail are external skills, covered by the skills catalog). Excludes nothing.
+  (bundled skills copied per-project one-by-one, external skills queued for
+  install, the workflow-command group copied in). Excludes catalog items with no
+  supporting evidence.
+- **Full** — every item in all 6 catalogs plus the workflow commands and Graphify
+  (the one third-party plugin; caveman + ponytail are external skills, covered by
+  the skills catalog). Excludes nothing.
 - **Custom** — pick each agent, rule, hook, and skill individually (the
-  category-by-category flow in Step 2; every item is listed and toggleable).
+  category-by-category flow in Step 2; every item is listed and toggleable). The
+  workflow commands are offered as one opt-in group (all five or none), not per
+  command.
+
+The **workflow commands** (`qnew`/`qplan`/`qcode`/`qgit`/`qcheck`, the Workflow
+Commands section of the skills catalog) are a group, not per-catalog picks: on by
+default in Standard/Full, one yes/no in Custom, off in Minimal. They are copied
+into the project (see the materialize refs), not installed via the skills CLI.
 
 **One-shot tiers (Minimal / Standard / Full):** build the selection silently
 from the catalogs, skip all per-category prompts, and go straight to Step 3's
@@ -259,12 +268,15 @@ Go in this order, one turn each:
    Present Graphify **pre-marked by default**; it's a system tool (`uv`/`pipx`/`pip`)
    that writes a graph-report snippet to the project doc, so confirm before proceeding.
 5. **Skills** — read `references/skills-catalog.md`. Present in two groups:
-   - **Bundled skills** (already included with this plugin — no install needed): scan
-     the bundle's `skills/` dir (see bundle-root resolution above) for subdirectory
-     names, exclude `setup-agents`, `setup-claude`, and `setup-agy` themselves. Show
-     each bundled skill with its one-line description and pre-mark per the
-     **Recommend when** column in the catalog's "Bundled Skills" section. Selected
-     bundled skills are logged as "already available" — no action required at install.
+   - **Bundled skills** (repo-bundled, copied into the project — never installed
+     globally): scan the bundle's `template/skills/` dir (see bundle-root resolution
+     above) for subdirectory names, exclude `setup-agents`, `setup-claude`, `setup-agy`,
+     and the workflow commands (`qnew`/`qplan`/`qcode`/`qgit`/`qcheck` — handled as their
+     own group). Show each bundled skill with its one-line description and pre-mark per
+     the **Recommend when** column in the catalog's "Bundled Skills" section. Present
+     them **individually selectable** (one-by-one, not all-or-none). Each selected
+     bundled skill is copied into the project's skills dir at install (materialize step),
+     the same mechanism as the workflow commands.
    - **Additional skills** (installed from GitHub via `bunx skills add`): read the
      catalog's "External Skills" section. Pre-mark recommendations from the scan.
      Each selected skill runs `bunx skills add <repo-url> --skill <skill-name> -a <adapter> -y`

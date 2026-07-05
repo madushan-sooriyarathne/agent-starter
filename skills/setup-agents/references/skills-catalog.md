@@ -2,9 +2,15 @@
 
 ## Bundled Skills
 
-These skills ship with this plugin and are **already available** — no install command
-needed. When selected in setup-agents, they are logged as "available (bundled)" in the
-summary. Surface them to the user so they know what they have.
+These skills ship in the plugin bundle (`template/skills/`) and are **copied into the
+project** when selected — `.claude/skills/<name>/SKILL.md` for Claude Code,
+`.agents/skills/<name>/SKILL.md` (frontmatter reduced to name+description) for
+Antigravity. They are **not** installed globally: present them **individually
+selectable** (one-by-one, per the **Recommend when** column), and copy each chosen one
+into the project's skills dir — the same mechanism as the Workflow Commands below (the
+only difference is these are picked one-by-one, not as an all-or-none group). Each
+`SKILL.md` is host-neutral: it reads `CLAUDE.md` **or** `AGENTS.md`, whichever the host
+uses. Log each copied one as "skill (copied)".
 
 | #   | Skill            | Description                                                                                     | Recommend when                                                  |
 | --- | ---------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -19,6 +25,25 @@ summary. Surface them to the user so they know what they have.
 | B9  | `test-writer`    | Write comprehensive tests for new or changed code                                               | Test runner detected                                            |
 | B10 | `claude-md`      | Keep CLAUDE.md current and lean. `audit` to check for stale commands, drift, and bloat          | Always                                                          |
 | B11 | `context-budget` | Estimate per-turn token cost of `.claude/` and `CLAUDE.md`; flags over-budget contributors      | Always                                                          |
+
+## Workflow Commands
+
+A `qnew` → `qplan` → `qcode` → `qcheck` → `qgit` slash-command loop. Like bundled skills
+(copied per-project, one-by-one) and unlike external skills (installed via the `skills` CLI),
+these are **copied verbatim into the project** — but as an all-or-none group —
+`.claude/skills/<name>/SKILL.md` for Claude Code,
+`.agents/skills/<name>/SKILL.md` (frontmatter reduced to name+description) for Antigravity — so
+they travel with the repo and teammates share them. Each `SKILL.md` is host-neutral: it reads
+`CLAUDE.md` **or** `AGENTS.md`, whichever the host uses. Offered as one opt-in group (all five or
+none), on by default in the standard/full tiers.
+
+| #   | Skill    | Description                                                                                   | Recommend when |
+| --- | -------- | --------------------------------------------------------------------------------------------- | -------------- |
+| W1  | `qnew`   | Load the project instructions and commit to their best practices before any work              | Always         |
+| W2  | `qplan`  | Turn a task into a plan that follows the project's rules, patterns, and existing code         | Always         |
+| W3  | `qcode`  | Implement the `/qplan` plan to production-ready, running the project's own quality gate       | Always         |
+| W4  | `qcheck` | Skeptical senior-engineer review of the session's changes against the project's checklists    | Always         |
+| W5  | `qgit`   | Quality-gate, then Conventional Commits commit + confirmed push (no AI-assistant attribution) | Always         |
 
 ## External Skills
 
