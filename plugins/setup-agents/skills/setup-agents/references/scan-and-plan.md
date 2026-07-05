@@ -229,10 +229,13 @@ Otherwise ask two `AskUserQuestion` rounds, **missing first, then orphans**:
 
 1. **Missing** — options: **Install all (Recommended)** (list each item with its
    reason so the user sees why) / **Choose per category** (drop into the Step 2
-   category flow, pre-marked, but scoped to the missing items only) / **Skip**.
-2. **Orphans** — options: **Remove all** / **Choose per category** (per-category
-   toggles, scoped to the orphans only) / **Keep all**. Removal is destructive:
-   it only ever proceeds via the approved Step 3 plan (below), never here.
+   category flow, pre-marked, but scoped to the missing items only — use the same
+   batched-`multiSelect` picker mechanics, never a type-the-names prompt) /
+   **Skip**.
+2. **Orphans** — options: **Remove all** / **Choose per category** (batched-
+   `multiSelect` picker toggles, scoped to the orphans only) / **Keep all**.
+   Removal is destructive: it only ever proceeds via the approved Step 3 plan
+   (below), never here.
 
 Carry both selections into Step 3 as `install` rows (chosen missing items) and
 `remove` rows (chosen orphans), then continue to Step 3 as normal.
@@ -244,16 +247,30 @@ Carry both selections into Step 3 as `install` rows (chosen missing items) and
 Read the matching catalog before presenting each category, and pre-mark the
 recommended items per its **Recommend when** column against the scan.
 
+**Selection mechanics — every category uses the picker, never free text.**
+`AskUserQuestion` caps at 4 questions/call and 4 options/question, so a category
+with more than 4 items is presented as **one call split into ≤4 `multiSelect`
+questions of ≤4 options each** — every catalog item is its own toggle,
+pre-checked when its **Recommend when** holds. Group items in the catalog's
+listed order (`Group A–D`, `Group E–H`, …) purely to fit the 4-option cap; the
+grouping carries no meaning. Do **not** dump a text list and ask the user to
+type names — the picker is the only presentation. "all" / "the recommended
+ones" / "none" remain accepted as spoken replies, but the default render is
+always the pre-marked picker. Per-category question counts are fixed below.
+
 Go in this order, one turn each:
 
-1. **Agents** — read `references/agents-catalog.md`. List all 8 with a one-line
-   purpose; pre-mark recommendations. Ask the user to confirm, adjust, or skip.
-2. **Rules** — read `references/rules-catalog.md`. List all 16; pre-mark.
-3. **Hooks** — read `references/hooks-catalog.md`. List all 10; **always
-   pre-mark the four safety hooks** (`block-dangerous-commands`, `scan-secrets`,
-   `protect-files`, `warn-large-files`); pre-mark `format-on-save` when Biome is
-   detected, `typecheck-on-stop`/`lint-on-stop` when a type-checker/linter is
-   detected, `session-start` by default (cheap).
+1. **Agents** — read `references/agents-catalog.md`. All 8 → **2 multiSelect
+   questions** (4 + 4) in one call, one-line purpose each; pre-mark
+   recommendations.
+2. **Rules** — read `references/rules-catalog.md`. All 16 → **4 multiSelect
+   questions** (4 × 4) in one call; pre-mark.
+3. **Hooks** — read `references/hooks-catalog.md`. All 10 → **3 multiSelect
+   questions** (4 + 4 + 2) in one call; **always pre-mark the four safety hooks**
+   (`block-dangerous-commands`, `scan-secrets`, `protect-files`,
+   `warn-large-files`); pre-mark `format-on-save` when Biome is detected,
+   `typecheck-on-stop`/`lint-on-stop` when a type-checker/linter is detected,
+   `session-start` by default (cheap).
 4. **Third-party plugins** — read `references/third-party-plugins-catalog.md`. This is
    now **Graphify only** (Caveman + Ponytail moved to the Skills catalog — see Step 5).
    Present Graphify **pre-marked by default**; it's a system tool (`uv`/`pipx`/`pip`)
@@ -285,8 +302,9 @@ Go in this order, one turn each:
      preserving the user's own content). Recommend the safer of keep/merge; don't
      decide for them. Carry the choice into the Step 3 plan as the doc's action.
 
-Use AskUserQuestion for each category so the user can multi-select. Accept
-"all", "the recommended ones", "none", or specific names.
+Each category is one turn: present its pre-marked picker (per the selection
+mechanics above), take the reply, move to the next. Never skip a category into a
+free-text "type the names you want" prompt.
 
 ## Step 3 — Plan & approve
 
