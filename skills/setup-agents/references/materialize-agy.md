@@ -46,9 +46,18 @@ Three differences from the Claude path that matter:
   found in Step 1). When `TARGETS` also has `claude`, this is a second, real
   copy — not a symlink to `.claude/rules/`.
 - **Agents** → `.agents/skills/<name>/SKILL.md` per the conversion above.
-- **Skills** → `.agents/skills/`. Handle the two groups separately:
-  - **Bundled skills:** no action required — already available via the plugin. Log
-    each selected bundled skill as "available (bundled)" in the summary.
+- **Skills** → `.agents/skills/`. Handle the three groups separately:
+  - **Bundled skills** (individually selected): for each, write
+    `.agents/skills/<name>/SKILL.md` the same way agents and workflow commands convert
+    — **frontmatter reduced to `name` + `description`** (agy is picky about extra keys),
+    the body from `${BUNDLE}/template/skills/<name>/SKILL.md` carried verbatim. They are
+    **not** installed globally — picked one-by-one and copied per-project. Skip any that
+    already exist; log each as "skill (copied)".
+  - **Workflow commands** (`qnew`/`qplan`/`qcode`/`qgit`/`qcheck`, when the group was
+    selected): for each, write `.agents/skills/<name>/SKILL.md` the same way agents
+    convert — **frontmatter reduced to `name` + `description`** (agy is picky about
+    extra keys), the body from `${BUNDLE}/template/skills/<name>/SKILL.md` carried
+    verbatim. Skip any that already exist; log each as "workflow (copied)".
   - **External skills:** for each selected external skill, run
     `bunx skills add <repo-url> --skill <skill-name> -a antigravity-cli -y` from the
     project directory (repo URL and skill name from the "External Skills" table in

@@ -38,9 +38,18 @@ Apply the approved plan exactly:
     catalog, then tell the user to run `/graphify .` in Claude Code to build the graph
     and to commit `graphify-out/` so teammates share it.
     Treat install failure as non-fatal — log the failure, skip, and continue.
-- **Skills:** handle the two groups separately:
-  - **Bundled skills:** no action required — they are already available via the plugin.
-    Log each selected bundled skill as "available (bundled)" in the summary.
+- **Skills:** handle the three groups separately:
+  - **Bundled skills** (individually selected): for each selected bundled skill, create
+    `.claude/skills/<name>/` and copy `${BUNDLE}/template/skills/<name>/SKILL.md` →
+    `.claude/skills/<name>/SKILL.md` **verbatim** (Claude reads the full frontmatter) —
+    the same copy as workflow commands below, just picked one-by-one instead of as a
+    group. They are **not** installed globally. Skip any that already exist; log each as
+    "skill (copied)".
+  - **Workflow commands** (`qnew`/`qplan`/`qcode`/`qgit`/`qcheck`, when the group was
+    selected): create `.claude/skills/<name>/` and copy each
+    `${BUNDLE}/template/skills/<name>/SKILL.md` → `.claude/skills/<name>/SKILL.md`
+    **verbatim** (Claude reads the full frontmatter). Skip any that already exist; log
+    each as "workflow (copied)".
   - **External skills:** for each selected external skill, run
     `bunx skills add <repo-url> --skill <skill-name> -a claude-code -y` from the
     project directory (repo URL and skill name from the catalog) → writes

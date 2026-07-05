@@ -93,6 +93,50 @@ Writes comprehensive tests covering every code path: happy path, edge cases, nul
 
 Estimates the per-turn token cost of this project's `.claude/` configuration and `CLAUDE.md`. Reports always-loaded files (rules without `paths:` plus `CLAUDE.md`), path-scoped rules, and invoked-only agents and skills. Ranks the top contributors and flags entries over budget. Default uses Anthropic's documented `chars/4` heuristic. Add `--api` to call Anthropic's `count_tokens` endpoint for exact counts (requires `$ANTHROPIC_API_KEY`).
 
+## Workflow commands
+
+An opt-in `qnew` → `qplan` → `qcode` → `qcheck` → `qgit` loop, copied into the project by
+`/setup-agents` (or `install.sh`) so it travels with the repo. Each is host-neutral — it reads
+`CLAUDE.md` or `AGENTS.md`, whichever the host uses.
+
+### /qnew
+
+**Trigger**: Manual only
+
+Loads the project instruction file and its referenced rules, then commits to those best practices
+for the session — echoes the key ones back and writes no code until it has. Stops if no
+instruction file exists.
+
+### /qplan [task description]
+
+**Trigger**: Manual only
+
+Turns a task into an implementation plan that fits the codebase: reads the project rules, reuses
+existing helpers/patterns before adding, and proposes the minimal change. Reads
+`graphify-out/GRAPH_REPORT.md` first when present.
+
+### /qcode [optional notes]
+
+**Trigger**: Manual only
+
+Implements the most recent `/qplan` plan, matching existing patterns, then runs the project's own
+quality gate (type-check, lint, test, build — whichever exist) and reports results honestly.
+
+### /qcheck
+
+**Trigger**: Manual only
+
+Skeptical senior-engineer review of the session's major changes against the project's Writing
+Functions / Writing Tests / Implementation checklists. One finding per line, severity-tagged, no
+praise padding.
+
+### /qgit
+
+**Trigger**: Manual only
+
+Runs the quality gate, stages changes, and commits with a Conventional Commits message (imperative,
+≤72-char subject, no AI-assistant attribution), then pushes after confirmation.
+
 ## Adding your own
 
 Create a directory with a `SKILL.md` file:

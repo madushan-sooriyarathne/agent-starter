@@ -51,6 +51,13 @@ skip() { printf '  %s•%s %s\n' "$DIM" "$RESET" "$*"; }
 INTERACTIVE=0
 if (exec </dev/tty) 2>/dev/null; then INTERACTIVE=1; fi
 
+# Workflow commands: repo-bundled slash-command skills copied verbatim into the
+# project (NOT bunx-installed like the external skills catalog). Host-neutral —
+# each SKILL.md references CLAUDE.md/AGENTS.md so one source serves both hosts.
+# WANT_WORKFLOW defaults 0; select_all() flips it on for standard/full or prompts.
+WORKFLOW_SKILLS=(qnew qplan qcode qgit qcheck)
+WANT_WORKFLOW=0
+
 ask_line() {
   # Reads one line from the terminal into REPLY_LINE; empty if non-interactive.
   REPLY_LINE=""
@@ -580,6 +587,22 @@ build_catalogs() {
   }
   [ "$HAS_HOSPITALITY" = "1" ] && cat_skill_defaults[3]=1
 
+  # --- Bundled skills (repo-bundled SKILL.md, copied per-project like workflow) ---
+  # Individually selectable; each selected skill is copied into the project's
+  # skills dir (.claude/skills/ or .agents/skills/), NOT installed globally.
+  cat_bundled_names=(catchup debug-fix explain fix-issue pr-review refactor ship tdd test-writer claude-md context-budget)
+  cat_bundled_descs=("rebuild context after /clear" "find & fix a bug (--fast hotfix)" "summary + mental model" "GitHub issue -> tested fix + PR" "parallel specialist PR review" "safe refactor, tests as net" "commit -> push -> PR" "TDD loop: red -> green -> refactor" "tests for new/changed code" "keep CLAUDE.md lean (audit)" "estimate .claude/ token cost")
+  cat_bundled_defaults=(1 1 1 0 0 1 0 0 0 1 1)
+  [ "$HAS_GH_REMOTE" = "1" ] && {
+    cat_bundled_defaults[3]=1
+    cat_bundled_defaults[4]=1
+    cat_bundled_defaults[6]=1
+  }
+  [ "$HAS_TESTS" = "1" ] && {
+    cat_bundled_defaults[7]=1
+    cat_bundled_defaults[8]=1
+  }
+
   # Install-step lookup arrays (name -> repo/skillname).
   skills_names=("${cat_skill_names[@]}")
   skills_repos=("${cat_skill_repos[@]}")
@@ -592,6 +615,8 @@ build_catalogs() {
   for ((i = 0; i < ${#cat_rule_names[@]}; i++)); do [ "${cat_rule_defaults[$i]}" = "1" ] && rec_rules+=("${cat_rule_names[$i]}"); done
   rec_hooks=()
   for ((i = 0; i < ${#cat_hook_names[@]}; i++)); do [ "${cat_hook_defaults[$i]}" = "1" ] && rec_hooks+=("${cat_hook_names[$i]}"); done
+  rec_bundled=()
+  for ((i = 0; i < ${#cat_bundled_names[@]}; i++)); do [ "${cat_bundled_defaults[$i]}" = "1" ] && rec_bundled+=("${cat_bundled_names[$i]}"); done
 }
 
 load_cat() { # load_cat <agent|rule|hook|plugin|skill> → names/descs/defaults
@@ -620,6 +645,11 @@ load_cat() { # load_cat <agent|rule|hook|plugin|skill> → names/descs/defaults
       names=("${cat_skill_names[@]}")
       descs=("${cat_skill_descs[@]}")
       defaults=("${cat_skill_defaults[@]}")
+      ;;
+    bundled)
+      names=("${cat_bundled_names[@]}")
+      descs=("${cat_bundled_descs[@]}")
+      defaults=("${cat_bundled_defaults[@]}")
       ;;
   esac
 }
@@ -669,6 +699,24 @@ select_all() {
   prompt_category "Skills (bunx skills add <repo> --skill <name>)"
   sel_skills=()
   [ ${#selected[@]} -gt 0 ] && sel_skills=("${selected[@]}")
+
+  load_cat bundled
+  prompt_category "Bundled skills (copied into project skills/)"
+  sel_bundled=()
+  [ ${#selected[@]} -gt 0 ] && sel_bundled=("${selected[@]}")
+
+  # --- Workflow commands (qnew/qplan/qcode/qgit/qcheck) ---
+  # Copied as a group (one opt-in), not toggled individually.
+  if [ "$TIER" = "standard" ] || [ "$TIER" = "full" ]; then
+    WANT_WORKFLOW=1
+    say "  Workflow commands (${WORKFLOW_SKILLS[*]}) ${DIM}(auto: $TIER tier)${RESET}"
+  else
+    head "Workflow commands"
+    say "  ${WORKFLOW_SKILLS[*]} — new-session, plan, code, commit, review slash-commands."
+    printf "  Install workflow commands? [Y/n]: "
+    ask_line
+    case "$REPLY_LINE" in "" | y | Y | yes | YES) WANT_WORKFLOW=1 ;; *) WANT_WORKFLOW=0 ;; esac
+  fi
 
   # --- CLAUDE.md ---
   head "CLAUDE.md template"
@@ -930,6 +978,8 @@ print_plan() {
   say "  Install hooks:   ${sel_hooks[*]:-(none)}"
   say "  Install plugins: ${sel_plugins[*]:-(none)}"
   say "  Install skills:  ${sel_skills[*]:-(none)}"
+  say "  Bundled skills:  ${sel_bundled[*]:-(none)}"
+  say "  Workflow cmds:   $([ "$WANT_WORKFLOW" = "1" ] && echo "${WORKFLOW_SKILLS[*]}" || echo "(none)")"
   say "  CLAUDE.md:       $([ "$WANT_CLAUDEMD" = "1" ] && echo "install/overwrite" || echo "skip")"
   local any_rm=0
   [ ${#REMOVE_CL_AGENTS[@]} -gt 0 ] && any_rm=1
@@ -955,6 +1005,7 @@ print_plan() {
 
 # ---- Dispatch: build catalogs once, then fork by mode ----
 build_catalogs
+sel_bundled=() # populated only by select_all (standard/full/custom); empty for minimal/gap.
 REMOVE_CL_AGENTS=()
 REMOVE_CL_RULES=()
 REMOVE_CL_HOOKS=()
@@ -1048,6 +1099,31 @@ if [ "$WANT_CLAUDE" = "1" ]; then
     for h in "${sel_hooks[@]}"; do
       copy_managed "$SCRIPT_DIR/hooks/claude/$h.sh" "$TARGET/.claude/hooks/$h.sh" "hook: $h"
       [ -f "$TARGET/.claude/hooks/$h.sh" ] && chmod +x "$TARGET/.claude/hooks/$h.sh"
+    done
+  fi
+
+  # Workflow commands → .claude/skills/<name>/SKILL.md (verbatim; Claude reads
+  # the full frontmatter — argument-hint, disable-model-invocation, allowed-tools).
+  if [ "$WANT_WORKFLOW" = "1" ]; then
+    for w in "${WORKFLOW_SKILLS[@]}"; do
+      mkdir -p "$TARGET/.claude/skills/$w"
+      copy_managed "$SCRIPT_DIR/skills/$w/SKILL.md" "$TARGET/.claude/skills/$w/SKILL.md" "workflow: $w"
+    done
+  fi
+
+  # Bundled skills → .claude/skills/<name>/SKILL.md (verbatim, same as workflow).
+  # Minimal project adaptation: reuse the rules `paths:` src rewrite — a no-op
+  # for skills that carry no `paths:` frontmatter (nearly all), so they land
+  # verbatim; a skill reads CLAUDE.md/AGENTS.md host-neutrally already.
+  if [ ${#sel_bundled[@]} -gt 0 ]; then
+    for w in "${sel_bundled[@]}"; do
+      mkdir -p "$TARGET/.claude/skills/$w"
+      if copy_managed "$SCRIPT_DIR/skills/$w/SKILL.md" "$TARGET/.claude/skills/$w/SKILL.md" "skill: $w"; then
+        if [ -n "$PRIMARY_SRC_DIR" ] && grep -q '^paths:' "$TARGET/.claude/skills/$w/SKILL.md" 2>/dev/null; then
+          sed -i.bak "/^paths:/,/^---/ s#\"src/#\"$PRIMARY_SRC_DIR/#g" "$TARGET/.claude/skills/$w/SKILL.md"
+          rm -f "$TARGET/.claude/skills/$w/SKILL.md.bak"
+        fi
+      fi
     done
   fi
 
@@ -1257,6 +1333,64 @@ if [ "$WANT_AG" = "1" ]; then
       } >"$dest"
       ok "skill (from agent): $a"
       AG_INSTALLED_SKILLS+=("$a")
+    done
+  fi
+
+  # Workflow commands → skills/<name>/SKILL.md. Same source as the Claude copy,
+  # but frontmatter reduced to name+description (agy is picky about extra keys —
+  # mirrors the agent→skill reduction above); body carried verbatim.
+  if [ "$WANT_WORKFLOW" = "1" ]; then
+    for w in "${WORKFLOW_SKILLS[@]}"; do
+      src="$SCRIPT_DIR/skills/$w/SKILL.md"
+      [ -f "$src" ] || {
+        skip "workflow: $w (source missing)"
+        continue
+      }
+      dest_dir="$AG_ROOT/skills/$w"
+      dest="$dest_dir/SKILL.md"
+      if [ -e "$dest" ]; then
+        skip "workflow: $w (exists, kept)"
+        continue
+      fi
+      mkdir -p "$dest_dir"
+      desc="$(awk -F': ' '/^description:/{ $1=""; sub(/^: /,""); print substr($0,2); exit }' "$src")"
+      {
+        printf '%s\n' "---"
+        printf 'name: %s\n' "$w"
+        printf 'description: %s\n' "${desc:-$w}"
+        printf '%s\n' "---"
+        awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$src"
+      } >"$dest"
+      ok "workflow: $w"
+    done
+  fi
+
+  # Bundled skills → skills/<name>/SKILL.md. Same copy shape as workflow above
+  # (frontmatter reduced to name+description, body verbatim); individually
+  # selected rather than an all-or-none group.
+  if [ ${#sel_bundled[@]} -gt 0 ]; then
+    for w in "${sel_bundled[@]}"; do
+      src="$SCRIPT_DIR/skills/$w/SKILL.md"
+      [ -f "$src" ] || {
+        skip "skill: $w (source missing)"
+        continue
+      }
+      dest_dir="$AG_ROOT/skills/$w"
+      dest="$dest_dir/SKILL.md"
+      if [ -e "$dest" ]; then
+        skip "skill: $w (exists, kept)"
+        continue
+      fi
+      mkdir -p "$dest_dir"
+      desc="$(awk -F': ' '/^description:/{ $1=""; sub(/^: /,""); print substr($0,2); exit }' "$src")"
+      {
+        printf '%s\n' "---"
+        printf 'name: %s\n' "$w"
+        printf 'description: %s\n' "${desc:-$w}"
+        printf '%s\n' "---"
+        awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$src"
+      } >"$dest"
+      ok "skill: $w"
     done
   fi
 
@@ -1488,6 +1622,8 @@ if [ "$WANT_CLAUDE" = "1" ]; then
   say "    Hooks:             ${sel_hooks[*]:-(none)}"
   say "    Plugins:           ${sel_plugins[*]:-(none)}"
   say "    Skills:            ${sel_skills[*]:-(none)}"
+  say "    Bundled skills:    ${sel_bundled[*]:-(none)} ${DIM}(.claude/skills/)${RESET}"
+  say "    Workflow:          $([ "$WANT_WORKFLOW" = "1" ] && echo "${WORKFLOW_SKILLS[*]}" || echo "(none)") ${DIM}(.claude/skills/)${RESET}"
   say "    CLAUDE.md:         $CLAUDEMD_VERDICT"
   say "    Removed:           agents=${REMOVE_CL_AGENTS[*]:-none} rules=${REMOVE_CL_RULES[*]:-none} hooks=${REMOVE_CL_HOOKS[*]:-none}"
 fi
@@ -1498,6 +1634,8 @@ if [ "$WANT_AG" = "1" ]; then
   say "    Hooks:             ${AG_INSTALLED_HOOKS[*]:-(none)} ${DIM}(safety guardrails only)${RESET}"
   say "    Plugins:           ${sel_plugins[*]:-(none)}"
   say "    Skills (catalog):  ${sel_skills[*]:-(none)} ${DIM}(.agents/skills/)${RESET}"
+  say "    Bundled skills:    ${sel_bundled[*]:-(none)} ${DIM}(.agents/skills/)${RESET}"
+  say "    Workflow:          $([ "$WANT_WORKFLOW" = "1" ] && echo "${WORKFLOW_SKILLS[*]}" || echo "(none)") ${DIM}(.agents/skills/)${RESET}"
   say "    Removed:           agents=${REMOVE_AG_AGENTS[*]:-none} rules=${REMOVE_AG_RULES[*]:-none} hooks=${REMOVE_AG_HOOKS[*]:-none}"
 fi
 say "  Always-loaded est.:  ~${TOKEN_EST} tokens (CLAUDE.md/AGENTS.md + path-less rules)"
