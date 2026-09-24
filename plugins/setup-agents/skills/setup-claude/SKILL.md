@@ -42,8 +42,7 @@ Then:
    `.claude/` + `CLAUDE.md`. Do **not** run `materialize-agy.md`.
 3. **Report.** Emit the Step 6 summary and tell the user to restart Claude Code.
 
-Ponytail (Claude Code only) is available in this mode. Everything else in
-`scan-and-plan.md` — the governing principle, gap-analysis mode, and guardrails
+Everything is in `scan-and-plan.md` — the governing principle, gap-analysis mode, and guardrails
 — applies as written. When `.claude/`+`CLAUDE.md` already exist, this takes the
 gap-analysis fork (Step 1.7): missing items offered, orphans flagged, each
 one-shot or per-category — instead of the fresh-install tiers.

@@ -42,7 +42,7 @@ none), on by default in the standard/full tiers.
 | W1  | `qnew`   | Load the project instructions and commit to their best practices before any work              | Always         |
 | W2  | `qplan`  | Turn a task into a plan that follows the project's rules, patterns, and existing code         | Always         |
 | W3  | `qcode`  | Implement the `/qplan` plan to production-ready, running the project's own quality gate       | Always         |
-| W4  | `qcheck` | Skeptical senior-engineer review of the session's changes against the project's checklists    | Always         |
+| W4  | `qcheck` | Senior-engineer review of a scope (diff/branch/path) with a fix plan handed to `/qcode`       | Always         |
 | W5  | `qgit`   | Quality-gate, then Conventional Commits commit + confirmed push (no AI-assistant attribution) | Always         |
 
 ## External Skills
