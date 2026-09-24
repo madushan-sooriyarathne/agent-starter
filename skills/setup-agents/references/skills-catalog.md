@@ -68,7 +68,7 @@ bunx skills add https://github.com/anthropics/skills --skill frontend-design -a 
 | --- | --------------------------- | --------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
 | 1   | frontend-design             | `https://github.com/anthropics/skills`                    | `frontend-design`             | Frontend detected (`.tsx`/`.jsx`, `components/` dir)            |
 | 2   | webapp-testing              | `https://github.com/anthropics/skills`                    | `webapp-testing`              | Always                                                          |
-| 3   | next-pro-seo                | `https://github.com/madushan-sooriyarathne/next-pro-seo`  | `next-pro-seo`                | `next.config.*` detected                                        |
+| 3   | next-pro-seo                | `https://github.com/madushan-sooriyarathne/skills`        | `next-pro-seo`                | `next.config.*` detected                                        |
 | 4   | brand-guidelines            | `https://github.com/anthropics/skills`                    | `brand-guidelines`            | Hospitality / real-estate / marketing signals                   |
 | 5   | mcp-builder                 | `https://github.com/anthropics/skills`                    | `mcp-builder`                 | Opt-in (off by default)                                         |
 | 6   | skill-creator               | `https://github.com/anthropics/skills`                    | `skill-creator`               | Opt-in (off by default)                                         |
@@ -93,6 +93,9 @@ bunx skills add https://github.com/anthropics/skills --skill frontend-design -a 
 | 25  | high-end-visual-design      | `https://github.com/Leonxlnx/taste-skill`                 | `high-end-visual-design`      | Frontend detected (agency-grade visual polish)                  |
 | 26  | minimalist-ui               | `https://github.com/Leonxlnx/taste-skill`                 | `minimalist-ui`               | Frontend detected (clean editorial minimalism)                  |
 | 27  | industrial-brutalist-ui     | `https://github.com/Leonxlnx/taste-skill`                 | `industrial-brutalist-ui`     | Frontend / data-dashboard detected (brutalist telemetry)        |
+| 28  | nextjs-perf-audit           | `https://github.com/madushan-sooriyarathne/skills`        | `nextjs-perf-audit`           | `next.config.*` detected                                        |
+| 29  | main-thread-performance     | `https://github.com/madushan-sooriyarathne/skills`        | `main-thread-performance`     | Frontend detected (animation / interaction perf)                |
+| 30  | shader-from-reference       | `https://github.com/madushan-sooriyarathne/skills`        | `shader-from-reference`       | Opt-in (WebGL / shader visuals)                                 |
 
 ¹ **caveman + ponytail (base skills only)** carry a mode: after a successful install
 they append a short nudge block to the host doc (`CLAUDE.md` and/or `AGENTS.md`) so the
