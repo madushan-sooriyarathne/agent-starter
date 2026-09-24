@@ -567,24 +567,31 @@ build_catalogs() {
   # caveman/ponytail skills also append a mode nudge to the host doc on install.
   cat_skill_names=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator
     caveman ponytail ponytail-review ponytail-audit ponytail-debt
-    design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui)
-  cat_skill_repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/next-pro-seo https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills
+    design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui
+    nextjs-perf-audit main-thread-performance shader-from-reference)
+  cat_skill_repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/skills https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills
     https://github.com/JuliusBrussee/caveman
     https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail
-    https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill)
+    https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill
+    https://github.com/madushan-sooriyarathne/skills https://github.com/madushan-sooriyarathne/skills https://github.com/madushan-sooriyarathne/skills)
   cat_skill_skillnames=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator
     caveman ponytail ponytail-review ponytail-audit ponytail-debt
-    design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui)
-  cat_skill_descs=("UI / component design" "web app testing" "Next.js SEO/GEO (your repo, needs gh auth)" "brand voice & guidelines" "build MCP servers" "author new skills"
+    design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui
+    nextjs-perf-audit main-thread-performance shader-from-reference)
+  cat_skill_descs=("UI / component design" "web app testing" "Next.js SEO/GEO audit + fix" "brand voice & guidelines" "build MCP servers" "author new skills"
     "ultra-compressed replies" "lazy/YAGNI build discipline" "review diff for over-engineering" "whole-repo over-engineering audit" "harvest ponytail: debt comments"
-    "anti-slop frontend design" "upgrade existing UI to premium" "agency-grade visual design" "clean editorial minimalist UI" "brutalist / tactical telemetry UI")
+    "anti-slop frontend design" "upgrade existing UI to premium" "agency-grade visual design" "clean editorial minimalist UI" "brutalist / tactical telemetry UI"
+    "Next.js performance audit" "main-thread / animation perf budget" "WebGL shader from reference image/video")
   cat_skill_defaults=(0 1 0 0 0 0
     1 1 0 0 0
-    0 0 0 0 0)
+    0 0 0 0 0
+    0 0 0)
   [ "$HAS_NEXT" = "1" ] && {
     cat_skill_defaults[0]=1
     cat_skill_defaults[2]=1
+    cat_skill_defaults[16]=1
   }
+  [ "$HAS_FRONTEND" = "1" ] && cat_skill_defaults[17]=1
   [ "$HAS_HOSPITALITY" = "1" ] && cat_skill_defaults[3]=1
 
   # --- Bundled skills (repo-bundled SKILL.md, copied per-project like workflow) ---
