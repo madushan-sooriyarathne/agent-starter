@@ -103,32 +103,41 @@ An opt-in `qnew` → `qplan` → `qcode` → `qcheck` → `qgit` loop, copied in
 
 **Trigger**: Manual only
 
-Loads the project instruction file and its referenced rules, then commits to those best practices
-for the session — echoes the key ones back and writes no code until it has. Stops if no
-instruction file exists.
+Discovers the project instruction files from the repo root down, resolves their precedence
+(subdirectory over root, user over repo), loads the skills they reference plus the optional
+`i-have-adhd`/`caveman`/`ponytail` session defaults when installed, reads the referenced rules, and
+notes the package manager, layout, and build/lint/test tooling. Then commits to those practices —
+echoes the key ones back and writes no code until it has. Stops if no instruction file exists, and
+halts on unresolvable conflicts or a missing required skill.
 
 ### /qplan [task description]
 
 **Trigger**: Manual only
 
-Turns a task into an implementation plan that fits the codebase: reads the project rules, reuses
-existing helpers/patterns before adding, and proposes the minimal change. Reads
-`graphify-out/GRAPH_REPORT.md` first when present.
+Investigates the repo and turns a task into an implementation-ready plan that fits the codebase:
+reads the project rules (and `graphify-out/GRAPH_REPORT.md` first when present), reuses existing
+helpers/patterns before adding, and proposes the minimal change plus a portable execution handoff.
+Saves both to a temp file, shows a TL;DR, then offers to view the detailed plan or copy the handoff
+prompt to the clipboard for another model — otherwise run `/qcode` to execute it.
 
-### /qcode [optional notes]
-
-**Trigger**: Manual only
-
-Implements the most recent `/qplan` plan, matching existing patterns, then runs the project's own
-quality gate (type-check, lint, test, build — whichever exist) and reports results honestly.
-
-### /qcheck
+### /qcode [EXECUTION HANDOFF or notes]
 
 **Trigger**: Manual only
 
-Skeptical senior-engineer review of the session's major changes against the project's Writing
-Functions / Writing Tests / Implementation checklists. One finding per line, severity-tagged, no
-praise padding.
+Executes the most recent `/qplan` plan (or a pasted `EXECUTION HANDOFF`) without expanding scope:
+loads the rules and skills the plan requires, checks the workspace matches the plan, then
+implements step by step with targeted validation after each. Finishes with the project's own
+quality gate and an `Execution Complete` / `Execution Blocked` report, including any deviations.
+
+### /qcheck [diff | branch | path]
+
+**Trigger**: Manual only
+
+Senior-engineer review of a scope — uncommitted changes by default, or a branch or path — hunting
+silent bugs, missed edge cases, error-handling gaps, performance problems, and structural debt,
+judged against the project's own rules. Findings are one or two lines each, grouped by severity.
+Saves a fix plan (in `/qplan`'s `EXECUTION HANDOFF` format) to a temp file, then offers to show it,
+copy it to the clipboard for another model, or run `/qcode` to apply it.
 
 ### /qgit
 
