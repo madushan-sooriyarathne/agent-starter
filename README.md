@@ -158,6 +158,10 @@ bunx skills add <repo-url> --skill <skill-name> -a claude-code -y
 | `nextjs-perf-audit`           | `madushan-sooriyarathne/skills`        | Next.js detected              |
 | `main-thread-performance`     | `madushan-sooriyarathne/skills`        | Frontend detected             |
 | `shader-from-reference`       | `madushan-sooriyarathne/skills`        | Opt-in                        |
+| `rust-best-practices`         | `apollographql/skills`                 | Rust detected                 |
+| `rust-async-patterns`         | `wshobson/agents`                      | Rust detected                 |
+| `rust-testing`                | `affaan-m/ecc`                         | Rust detected                 |
+| `rust-patterns`               | `affaan-m/ecc`                         | Rust detected                 |
 
 ### Third-party plugins
 

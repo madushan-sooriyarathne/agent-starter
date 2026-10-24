@@ -96,6 +96,10 @@ bunx skills add https://github.com/anthropics/skills --skill frontend-design -a 
 | 28  | nextjs-perf-audit           | `https://github.com/madushan-sooriyarathne/skills`        | `nextjs-perf-audit`           | `next.config.*` detected                                        |
 | 29  | main-thread-performance     | `https://github.com/madushan-sooriyarathne/skills`        | `main-thread-performance`     | Frontend detected (animation / interaction perf)                |
 | 30  | shader-from-reference       | `https://github.com/madushan-sooriyarathne/skills`        | `shader-from-reference`       | Opt-in (WebGL / shader visuals)                                 |
+| 31  | rust-best-practices         | `https://github.com/apollographql/skills`                 | `rust-best-practices`         | `Cargo.toml` detected (Rust only)                               |
+| 32  | rust-async-patterns         | `https://github.com/wshobson/agents`                      | `rust-async-patterns`         | `Cargo.toml` detected (Rust only)                               |
+| 33  | rust-testing                | `https://github.com/affaan-m/ecc`                         | `rust-testing`                | `Cargo.toml` detected (Rust only)                               |
+| 34  | rust-patterns               | `https://github.com/affaan-m/ecc`                         | `rust-patterns`               | `Cargo.toml` detected (Rust only)                               |
 
 ¹ **caveman + ponytail (base skills only)** carry a mode: after a successful install
 they append a short nudge block to the host doc (`CLAUDE.md` and/or `AGENTS.md`) so the
