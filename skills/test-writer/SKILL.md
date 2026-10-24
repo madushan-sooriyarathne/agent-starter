@@ -26,8 +26,8 @@ For each new or modified function/method/component, map out:
 
 - **Happy path**. Normal input, expected output
 - **Edge cases**. Empty input, single element, boundary values (0, 1, -1, MAX_INT)
-- **Null/undefined/nil**. What happens with missing data
-- **Type boundaries**. Wrong types, type coercion traps
+- **Missing data**. Null/undefined/None/nil, absent optional values
+- **Type boundaries**. Wrong types or shapes where input is untyped (JSON, forms, env, FFI)
 - **Error paths**. Invalid input, network failures, timeouts, permission denied
 - **Concurrency**. Race conditions, parallel calls with shared state
 - **State transitions**. Initial state, intermediate states, final state
@@ -40,11 +40,13 @@ For EACH scenario identified above, write a test. No skipping.
 ### Structure
 
 - **One assertion per test**. If a test name needs "and", split it into two tests
-- **Descriptive names**. Test names read as sentences describing the behavior:
-  - `should return empty array when input is empty`
-  - `should throw ValidationError when email format is invalid`
-  - `should retry 3 times before failing on network timeout`
+- **Descriptive names**. Test names read as sentences describing the behavior, in the project's naming style:
+  - returns an empty list when input is empty
+  - rejects an invalid email with a validation error
+  - retries 3 times before failing on network timeout
 - **Arrange-Act-Assert**. Set up, execute, verify. Clear separation.
+
+<!-- lang:testing -->
 
 ### What to Test
 

@@ -80,7 +80,7 @@ Always-loaded (every turn):                 ~N tokens
 
 Path-scoped (loaded near matched files):    ~N tokens (max, if every glob matches)
   .claude/rules/security.md      (paths: src/api/**, ...)  ~N tokens
-  .claude/rules/frontend.md      (paths: **/*.tsx, ...)    ~N tokens
+  .claude/rules/<name>.md        (paths: <globs>)          ~N tokens
 
 Invoked-only (zero per-turn cost):
   Cumulative size if every skill and agent loaded once: ~N tokens

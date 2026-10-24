@@ -7,6 +7,7 @@ allowed-tools:
   - Read
   - Bash(git *)
   - Bash(gh *)
+  - Agent
 ---
 
 Take the working changes to a clean commit. Quality gate first, Conventional Commits message,
@@ -17,9 +18,15 @@ push only after confirmation.
 1. **Survey.** `git status` + `git diff` to see what changed. If nothing is staged or modified,
    say so and stop.
 2. **Quality gate.** Run the project's checks in order, skipping any that don't exist: type-check,
-   lint, test, build (read `package.json`/manifest and the project instructions for the real
-   command names). On failure, offer: fix and re-run / commit anyway / cancel — do not silently
-   push broken code.
+   lint, test, build (read the manifest and the project instructions for the real command
+   names). On failure, offer: fix and re-run / commit anyway / cancel — do not silently push
+   broken code. When the gate has several commands or noisy output, and the host has a subagent
+   tool that takes a model per call (Claude Code's `Agent` tool), run it in a `haiku` subagent.
+   It reports pass or fail and only the failing lines, and never edits files. Otherwise run the
+   gate inline.
+
+   <!-- lang:commands -->
+
 3. **Stage** the relevant files (`git add`). Show the final file list.
 4. **Compose the message** (see rules below) from the diff.
 5. **Commit**, then show the hash and subject.

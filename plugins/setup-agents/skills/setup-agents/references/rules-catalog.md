@@ -9,7 +9,7 @@ stack is active. Pre-mark based on scan signals.
 
 | #   | Rule             | File                | Covers                                                                                                                             | Recommend when                                                                                                 |
 | --- | ---------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 1   | `typescript`     | `typescript.md`     | No `any`, infer types from Drizzle schema, Zod at external boundaries, strict tsconfig flags                                       | `tsconfig.json` or `.ts`/`.tsx` files. Default: recommend                                                      |
+| 1   | `typescript`     | `typescript.md`     | No `any`, infer types from Drizzle schema, Zod at external boundaries, strict tsconfig flags                                       | `tsconfig.json` or `.ts`/`.tsx` files                                                                          |
 | 2   | `git-workflow`   | `git-workflow.md`   | Conventional commits, branch naming, no direct push to main, no `--no-verify`, no destructive force-push                           | Always (Git repo). Default: recommend                                                                          |
 | 3   | `nextjs`         | `nextjs.md`         | App Router conventions, server vs client components, DAL pattern, caching/revalidation                                             | `next.config.*` detected                                                                                       |
 | 4   | `monorepo`       | `monorepo.md`       | Turborepo package boundaries, pnpm workspaces, no cross-package `../` imports, no barrel files                                     | `turbo.json` OR `pnpm-workspace.yaml` detected                                                                 |
@@ -28,7 +28,7 @@ stack is active. Pre-mark based on scan signals.
 
 Notes:
 
-- `typescript`, `git-workflow`, and `code-quality` apply to essentially every project; pre-check them by default.
+- `git-workflow` and `code-quality` apply to essentially every project; pre-check them by default. Pre-check `typescript` only when TS is detected — never on a Rust/Go-only project.
 - All other rules are stack- or surface-specific; only pre-check when their signal is present, but still list them so the user can opt in.
 - `bun`/`hono`/`react` share broad `paths:` globs with `typescript` (can't reliably distinguish runtime/framework by filename alone) — that's fine, the install-time signal above is what keeps irrelevant rules out of a project in the first place.
 - `code-quality` and `testing` carry no `paths:` frontmatter, so they count toward the always-loaded token budget (see Step 6 verification) — weigh that before recommending both by default on a token-sensitive setup.

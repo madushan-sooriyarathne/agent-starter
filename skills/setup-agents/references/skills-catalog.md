@@ -35,15 +35,17 @@ these are **copied verbatim into the project** — but as an all-or-none group �
 `.agents/skills/<name>/SKILL.md` (frontmatter reduced to name+description) for Antigravity — so
 they travel with the repo and teammates share them. Each `SKILL.md` is host-neutral: it reads
 `CLAUDE.md` **or** `AGENTS.md`, whichever the host uses. Offered as one opt-in group (all five or
-none), on by default in the standard/full tiers.
+none), on by default in the standard/full tiers. `qplan`/`qcode`/`qcheck`/`qgit` delegate to
+cheaper subagents (`sonnet`, `haiku` aliases) only when the token estimate beats the planning model
+doing the work; on hosts without per-call model selection they run inline.
 
 | #   | Skill    | Description                                                                                   | Recommend when |
 | --- | -------- | --------------------------------------------------------------------------------------------- | -------------- |
 | W1  | `qnew`   | Load the project instructions and commit to their best practices before any work              | Always         |
-| W2  | `qplan`  | Turn a task into a plan that follows the project's rules, patterns, and existing code         | Always         |
-| W3  | `qcode`  | Implement the `/qplan` plan to production-ready, running the project's own quality gate       | Always         |
-| W4  | `qcheck` | Senior-engineer review of a scope (diff/branch/path) with a fix plan handed to `/qcode`       | Always         |
-| W5  | `qgit`   | Quality-gate, then Conventional Commits commit + confirmed push (no AI-assistant attribution) | Always         |
+| W2  | `qplan`  | Plan a task on `opus` per the project's rules and code; picks inline vs. delegated execution  | Always         |
+| W3  | `qcode`  | Execute the plan inline or via `sonnet`/`haiku` subagents, running the project's quality gate | Always         |
+| W4  | `qcheck` | Senior-engineer review of a scope (diff/branch/path), optional `sonnet` reviewers, fix plan   | Always         |
+| W5  | `qgit`   | Quality-gate (`haiku` when noisy), then Conventional Commits commit + confirmed push          | Always         |
 
 ## External Skills
 

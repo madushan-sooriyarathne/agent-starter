@@ -115,7 +115,9 @@ existing file without it appearing in the approved plan first. When `TARGETS`
 has both hosts, run gap-analysis independently per host — a host with no config
 yet simply has its full recommended set as "missing" and nothing orphaned.
 
-Build a `detectedStack` list from the hits.
+Build a `detectedStack` list from the hits, and the `LANGS` list of language profiles
+(`typescript` / `rust` / `go`) per `references/language-tailoring.md` — materialization
+uses it to fill the language markers in every copied file.
 
 ## Step 1.5 — Confirm the detected stack
 
@@ -136,6 +138,7 @@ Stack
   Formatter:  Prettier (printWidth 100)
   Typecheck:  tsc (no ESLint/Biome)
   Pkg mgr:    pnpm workspaces
+  Tailoring:  typescript (language profiles from LANGS)
   Git:        <default-branch>, gh <installed?/remote?>
   CI:         <detected workflow / —>
 Packages
@@ -218,7 +221,13 @@ each catalog once, apply its **Recommend when** column):
   `settings.json`/`hooks.json`, or `.agent-starter.json` as orphans — they are
   host plumbing, not catalog components.
 
-Render one gap report — two labeled sections, one row per item with a one-line
+- **Re-tailor** — catalog files on disk whose language sections are out of date
+  for the current `LANGS`: **refill** (blocks record other languages — rewritten
+  in place, user edits kept) or **recopy** (installed before language profiles
+  existed — re-copied from source, overwriting local edits). Rules in
+  `references/language-tailoring.md`.
+
+Render one gap report — labeled sections, one row per item with a one-line
 reason. When `TARGETS` has both hosts and their state differs, group by host.
 
 ```
@@ -229,12 +238,16 @@ Gap analysis (Targets: Claude Code)
   Orphan — installed, no longer justified
     graphql.md (rule)           no GraphQL dep or schema found anymore
     old-helper.sh (hook)        no catalog match — renamed/removed upstream
+  Re-tailor — language sections out of date (now: rust)
+    qgit (skill)                refill — tailored for typescript only
+    code-reviewer (agent)       recopy — pre-profile copy, overwrites local edits
 ```
 
-If both lists are empty, tell the user the setup is already in sync with the
+If all three lists are empty, tell the user the setup is already in sync with the
 current stack and stop — nothing to plan.
 
-Otherwise ask two `AskUserQuestion` rounds, **missing first, then orphans**:
+Otherwise ask up to three `AskUserQuestion` rounds, **missing, then orphans, then
+re-tailor**:
 
 1. **Missing** — options: **Install all (Recommended)** (list each item with its
    reason so the user sees why) / **Choose per category** (drop into the Step 2
@@ -242,9 +255,13 @@ Otherwise ask two `AskUserQuestion` rounds, **missing first, then orphans**:
 2. **Orphans** — options: **Remove all** / **Choose per category** (per-category
    toggles, scoped to the orphans only) / **Keep all**. Removal is destructive:
    it only ever proceeds via the approved Step 3 plan (below), never here.
+3. **Re-tailor** — options: **Re-tailor all (Recommended)** / **Refill only**
+   (keeps local edits; skips recopy rows) / **Skip**. With no recopy rows, ask
+   **Re-tailor (Recommended)** / **Skip**.
 
-Carry both selections into Step 3 as `install` rows (chosen missing items) and
-`remove` rows (chosen orphans), then continue to Step 3 as normal.
+Carry the selections into Step 3 as `install` rows (chosen missing items),
+`remove` rows (chosen orphans), and `re-tailor` rows (chosen refill/recopy
+files), then continue to Step 3 as normal.
 
 ## Step 2 — Category-by-category selection
 
@@ -307,16 +324,17 @@ gap-analysis mode, everything flagged for removal). When `TARGETS` has both
 hosts, one plan drives both — note the target set in the table caption
 (e.g. "Targets: Claude Code + Antigravity"):
 
-| Component                         | Action  | Evidence                                               | Cost class                  |
-| --------------------------------- | ------- | ------------------------------------------------------ | --------------------------- |
-| `security-reviewer` (agent)       | install | API routes detected in `src/api/`                      | invoked-only                |
-| `security.md` (rule)              | install | `src/auth/`, `src/middleware/` found                   | path-scoped                 |
-| `testing.md` (rule)               | install | `vitest.config.ts` + `*.test.ts` found                 | always-loaded (no `paths:`) |
-| `block-dangerous-commands` (hook) | install | always-on safety                                       | hook — no context cost      |
-| `caveman` (skill)                 | install | default selected; user confirmed                       | project-doc snippet         |
-| `graphify` (plugin)               | skip    | `uv`/`pipx` not found on PATH                          | —                           |
-| `pr-review` (skill)               | skip    | no GitHub remote / `gh` not installed                  | —                           |
-| `old-custom-rule.md` (rule)       | remove  | no longer justified by scan; not in approved selection | —                           |
+| Component                         | Action             | Evidence                                                  | Cost class                  |
+| --------------------------------- | ------------------ | --------------------------------------------------------- | --------------------------- |
+| `security-reviewer` (agent)       | install            | API routes detected in `src/api/`                         | invoked-only                |
+| `security.md` (rule)              | install            | `src/auth/`, `src/middleware/` found                      | path-scoped                 |
+| `testing.md` (rule)               | install            | `vitest.config.ts` + `*.test.ts` found                    | always-loaded (no `paths:`) |
+| `block-dangerous-commands` (hook) | install            | always-on safety                                          | hook — no context cost      |
+| `caveman` (skill)                 | install            | default selected; user confirmed                          | project-doc snippet         |
+| `graphify` (plugin)               | skip               | `uv`/`pipx` not found on PATH                             | —                           |
+| `pr-review` (skill)               | skip               | no GitHub remote / `gh` not installed                     | —                           |
+| `old-custom-rule.md` (rule)       | remove             | no longer justified by scan; not in approved selection    | —                           |
+| `qgit` (skill)                    | re-tailor (refill) | `Cargo.toml` added; blocks tailored for `typescript` only | invoked-only                |
 
 Cost class: `invoked-only` for agents/skills, `path-scoped` for rules with
 `paths:` frontmatter, `always-loaded` for rules without it, `hook` for hooks

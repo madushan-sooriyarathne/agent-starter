@@ -41,6 +41,10 @@ Three differences from the Claude path that matter:
 
 ## Materialize
 
+Every file written from `${BUNDLE}/template/` (rules, agent and skill
+conversions, `AGENTS.md`) gets its language markers filled for `LANGS` right
+after it is written — see `references/language-tailoring.md`.
+
 - **Rules** → `.agents/rules/<name>.md`, identical markdown; apply the same
   `paths:` rewrite as the Claude path (rewrite globs to the real source dirs
   found in Step 1). When `TARGETS` also has `claude`, this is a second, real
@@ -102,6 +106,9 @@ discipline`); the ponytail sub-tools and all other external skills append nothin
   (mirrors the Claude fingerprint write; `session-start.sh` reads this path back
   by default on its next `invocationNum==0` `PreInvocation`). Tell the user to
   commit it.
+- **Re-tailor (gap-analysis mode only):** for each approved `re-tailor` row under
+  `.agents/` (or `AGENTS.md`), refill in place or recopy + fill, per
+  `references/language-tailoring.md`.
 - **Removals (gap-analysis mode only):** for each file the approved plan marks
   `remove` under `.agents/`, delete it individually (never a bulk `rm`) and
   confirm after.

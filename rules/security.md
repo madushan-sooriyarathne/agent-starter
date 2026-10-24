@@ -17,3 +17,5 @@ paths:
 - Use constant-time comparison for secrets and tokens.
 - Set appropriate CORS, CSP, and security headers.
 - Rate-limit authentication endpoints.
+
+<!-- lang:security -->

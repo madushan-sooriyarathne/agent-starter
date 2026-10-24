@@ -11,10 +11,10 @@
 
 ## Naming
 
-- Files: PascalCase for components and classes (`UserProfile.tsx`), kebab-case for utilities and directories (`date-utils.ts`).
-- Booleans: `is` / `has` / `should` / `can` prefix. Functions: verb-first (`getUser`). Handlers: `handle*` internal, `on*` as props.
-- Factories: `create*`. Converters: `to*`. Predicates: `is*` / `has*`. Constants: `SCREAMING_SNAKE`.
-- Abbreviations only when universally known (`id`, `url`, `api`, `db`, `auth`). Acronyms as words: `userId`, not `userID`.
+- Follow the language's own casing and API conventions. Names say what a thing is; booleans read as predicates (`is` / `has` / `should` / `can`).
+- Abbreviations only when universally known (`id`, `url`, `api`, `db`, `auth`).
+
+<!-- lang:naming -->
 
 ## Code Markers
 
@@ -22,6 +22,5 @@
 
 ## File Organization
 
-- Imports: builtins, external, internal, relative, types. Blank line between groups.
-- Exports: named over default. One component or class per file.
 - Function order: public API first, then helpers in call order.
+- Group imports the way the language's formatter or linter does; never fight the formatter.

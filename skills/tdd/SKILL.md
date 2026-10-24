@@ -17,7 +17,7 @@ Repeat this cycle for each behavior. Never skip steps.
 
 1. Write ONE test for the smallest next behavior (not the whole feature)
 2. The test must:
-   - Describe the behavior in its name: `should return 0 for empty cart`
+   - Describe the behavior in its name (e.g. "returns 0 for an empty cart"), in the project's test naming style
    - Use Arrange-Act-Assert structure
    - Assert specific values, not vague truths
 3. **Run the test. It MUST fail.** If it passes, either:
@@ -39,6 +39,10 @@ Repeat this cycle for each behavior. Never skip steps.
 2. Make ONE improvement at a time
 3. **Run ALL tests after each change.** If anything breaks, undo immediately.
 4. Stop refactoring when the code is clean enough. Don't gold-plate
+
+## Language specifics
+
+<!-- lang:testing -->
 
 ## Choosing What to Test Next
 

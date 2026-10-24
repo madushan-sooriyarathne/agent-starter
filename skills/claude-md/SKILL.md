@@ -28,7 +28,7 @@ Present all candidates with AskUserQuestion (multiSelect — let the user pick w
 
 Check every line of CLAUDE.md against reality:
 
-1. **Commands**: does each documented command still exist (`package.json` scripts, Makefile targets, etc.) and match its description? Run `--help`/`--dry-run` variants where cheap.
+1. **Commands**: does each documented command still exist (manifest scripts and aliases, `Makefile`/`justfile` targets, CI jobs) and match its description? Run `--help`/`--dry-run` variants where cheap.
 2. **Paths and names**: do referenced directories, files, and tools still exist?
 3. **Duplication**: lines that repeat `.claude/rules/` content, hook-enforced behavior, or standard conventions Claude already knows — propose deletion.
 4. **Leftovers**: any `> REPLACE:` template blocks — propose deletion.

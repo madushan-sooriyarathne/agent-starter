@@ -49,6 +49,10 @@ Run `git diff --name-only`. For each changed file, locate every error path: catc
 - Circuit breakers / fallbacks that never report they're open — degraded mode becomes permanent mode.
 - Cleanup code in `finally` that throws and masks the original error.
 
+## Language specifics
+
+<!-- lang:errors -->
+
 ## What NOT to flag
 
 - Intentional suppression with a comment explaining why (best-effort cleanup, optional telemetry, probing for existence).

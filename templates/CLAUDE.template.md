@@ -4,22 +4,9 @@
 
 ## Commands
 
-```bash
-# Build
-npm run build            # or: cargo build, go build ./..., make build
+> REPLACE: Keep only commands that exist in this project (manifest scripts, `Makefile`/`justfile` targets, CI jobs). `/setup-agents` fills the block below for the detected language(s).
 
-# Test
-npm test                 # run full suite
-npm test -- path/to/file # run single test file
-
-# Lint & Format
-npm run lint             # check style
-npm run lint:fix         # auto-fix style
-npm run typecheck        # type checking
-
-# Dev
-npm run dev              # start dev server
-```
+<!-- lang:commands -->
 
 ## Architecture
 
@@ -40,10 +27,10 @@ npm run dev              # start dev server
 
 ## Workflow
 
-- Run typecheck after making a series of code changes
+- Run the type-check / compile step (see Commands) after a series of code changes
 - Prefer fixing the root cause over adding workarounds
 - When unsure about approach, use plan mode (`Shift+Tab`) before coding
 
 ## Don'ts
 
-- Don't modify generated files (`*.gen.ts`, `*.generated.*`)
+- Don't hand-edit generated files. Regenerate them

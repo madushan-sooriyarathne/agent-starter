@@ -6,7 +6,9 @@ plan from `references/scan-and-plan.md`.
 
 ## Step 4 — Install
 
-Apply the approved plan exactly:
+Apply the approved plan exactly. Every file copied from `${BUNDLE}/template/`
+(agents, rules, skills, `CLAUDE.md`) gets its language markers filled for `LANGS`
+right after the copy — see `references/language-tailoring.md`.
 
 - **Agents:** create `.claude/agents/`; copy each selected
   `${BUNDLE}/template/agents/<name>.md` → `.claude/agents/<name>.md`.
@@ -25,7 +27,8 @@ Apply the approved plan exactly:
   JSON shape in `references/hooks-catalog.md`. When generating
   `permissions.allow`, include only commands that actually exist in this
   project (real script names from the manifest read in Step 1, real `gh`
-  subcommands only if a GitHub remote + `gh` were detected) — never paste in a
+  subcommands only if a GitHub remote + `gh` were detected, plus the
+  `## permissions` lines of each profile in `LANGS`) — never paste in a
   generic allow-list wholesale.
 - **Third-party plugins:** read `references/third-party-plugins-catalog.md`. This is now
   **Graphify only** — caveman + ponytail install as external skills (handled in the
@@ -71,6 +74,9 @@ Apply the approved plan exactly:
   - Budget: under 25 non-blank lines pass; 25-50 warn (list the longest
     sections, ask via one `AskUserQuestion` which to trim); over 50 must propose
     specific cuts and keep trimming until ≤50 before moving on.
+- **Re-tailor (gap-analysis mode only):** for each approved `re-tailor` row,
+  refill the file's language blocks in place, or recopy it from source and fill
+  it, per `references/language-tailoring.md`.
 - **Removals (gap-analysis mode only):** for each file the approved plan marks
   `remove`, delete it individually (never a bulk `rm`) and confirm immediately
   after — list what was removed and why in the summary. Never remove a file that

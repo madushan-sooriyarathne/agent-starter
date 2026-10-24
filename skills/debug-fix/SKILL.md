@@ -6,8 +6,6 @@ disable-model-invocation: true
 allowed-tools:
   - Bash(git *)
   - Bash(gh *)
-  - Bash(npm run test *)
-  - Bash(npm run build)
   - Read
   - Glob
   - Grep
@@ -89,7 +87,10 @@ In `--fast` mode specifically:
 
 - Write a test that reproduces the bug and now passes.
 - Run related tests for regressions.
-- Run lint and typecheck.
+- Run the project's lint and type-check:
+
+<!-- lang:commands -->
+
 - Temporarily revert your fix and confirm the new test fails (proves the test catches the bug).
 
 **--fast**:

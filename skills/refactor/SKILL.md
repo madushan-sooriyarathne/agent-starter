@@ -30,9 +30,11 @@ Refactor `$ARGUMENTS` safely. If `$ARGUMENTS` contains `--diff`, use Diff mode b
 ### 4. Verify
 
 - All existing tests pass
-- Lint and typecheck pass
+- Lint and type-check pass
 - The public API hasn't changed (unless that was the explicit goal)
 - The code is objectively simpler. Fewer lines, fewer branches, clearer names
+
+<!-- lang:commands -->
 
 ## Diff mode (`--diff`): simplify what you just wrote
 

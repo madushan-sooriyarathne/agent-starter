@@ -3,6 +3,7 @@ name: qplan
 description: Investigate the repository and turn a task into an implementation-ready plan plus a portable execution handoff, without modifying code. Trigger with /qplan followed by the task.
 argument-hint: "[task description]"
 disable-model-invocation: true
+model: opus
 allowed-tools:
   - Read
   - Write
@@ -11,6 +12,7 @@ allowed-tools:
   - Bash(git status)
   - Bash(git log *)
   - Bash(git diff *)
+  - Bash(wc *)
   - Bash(pbcopy *)
   - Bash(wl-copy *)
   - Bash(xclip *)
@@ -35,9 +37,41 @@ and environment constraints before planning.
 3. **Deconstruct the requirement.** Identify functional requirements, acceptance criteria, boundaries, and potential side effects.
 4. **Inspect context.** Read entry points, relevant components, types, schemas, services, and existing tests. Trace the end-to-end data flow.
 5. **Check patterns.** Match existing architectural paradigms and utilities. Prefer extending existing code over new files; no new abstractions when existing ones suffice.
-6. **Determine validation.** Identify targeted verification (unit tests, integration tests, lint, type-check) in the project's existing test style.
+6. **Determine validation.** Identify targeted verification (unit tests, integration tests, lint, type-check) in the project's existing test style:
+
+   <!-- lang:commands -->
+
 7. **Determine required rules & skills.** Identify repository rules (e.g. path-scoped rules in `.claude/rules/` / `.agents/rules/`) and skills (e.g. `ponytail`) that `/qcode` must load before executing the plan.
-8. **Clarify ambiguities.** If an ambiguity materially changes implementation decisions, pause and ask targeted questions in a single grouped prompt. Document minor assumptions directly in the plan.
+8. **Decide the execution strategy.** Choose `inline` or `delegated` per [Execution Strategy](#execution-strategy).
+9. **Clarify ambiguities.** If an ambiguity materially changes implementation decisions, pause and ask targeted questions in a single grouped prompt. Document minor assumptions directly in the plan.
+
+## Execution Strategy
+
+Planning stays on the most capable model. Execution may fan out to cheaper subagents, but only
+when that costs fewer tokens than the planning model doing the work itself.
+
+**Model tiers.** Name tiers by alias (`opus`, `sonnet`, `haiku`), never by version: the host
+resolves each alias to the newest model in that family.
+
+- `sonnet`: implementation units (writing code and tests).
+- `haiku`: mechanical units, such as running the quality gate (type-check, lint, test, build),
+  browser checks, and reproducing a failure. These report results; they never fix code.
+
+**Break-even rule.** Estimate token counts as chars/4 (`wc -c` on the files a unit reads, plus
+the expected diff and validation output). Let `P` be the per-token price of each tier; as of
+2026-10, `sonnet` costs about ½ of `opus` and `haiku` about 1/40.
+
+- Inline cost: `W × P_opus`. `W` is all tokens the work reads and writes, including the context
+  that each later turn carries forward.
+- Delegated cost: `(H + M) × P_opus + Σ (C + W_unit) × P_unit`. `H` is the handoff prompts the
+  orchestrator writes. `M` is monitoring: receipts, `git diff --stat`, and spot-reading risky
+  hunks. `C` is each subagent's cold start (it re-reads its files and rules).
+- Choose `delegated` only when delegated cost is clearly lower, about 70% of inline cost or
+  less, because the estimates are rough. Otherwise choose `inline`.
+
+**Unit constraints.** Each delegated unit owns a disjoint set of files, so no two subagents write
+the same file. Each unit is specified completely enough to run cold, without this conversation.
+A unit that fails these constraints merges into a neighbor or stays inline.
 
 ## Plan Structure
 
@@ -74,6 +108,14 @@ Build the plan with this schema. Enforce the `ponytail` ladder (YAGNI, smallest 
 ## Acceptance Criteria
 
 - [ ] <verifiable criterion>
+
+## Execution Strategy
+
+- **Mode**: inline | delegated
+- **Estimate**: inline ≈ <tokens> on `opus`; delegated ≈ <orchestrator tokens> on `opus` + <subagent tokens> per tier
+- **Units** (delegated only):
+  - **U1**: model `sonnet`; files `<owned paths>`; steps <sequence numbers>; depends on <none | U#>; validate `<command>`
+- **Verification**: model `haiku` | inline; `<gate commands>`; browser check <url and flow, or none>
 
 ## File Manifest
 
@@ -112,6 +154,9 @@ Detailed plan:
 Validation:
 <targeted validation commands>
 
+Execution strategy:
+<the Execution Strategy section: mode, units, verification>
+
 Execution rules:
 <scope boundaries and specific restrictions>
 ```
@@ -122,6 +167,8 @@ Execution rules:
    `${TMPDIR:-/tmp}/qplan-<task-slug>.md` — never inside the repository.
 2. **Show a TL;DR only**, shaped per `caveman` and `i-have-adhd`: lead with the next action and a
    time estimate, then the approach and scope (files touched) in a few lines.
+   Include one line for the execution strategy, e.g.
+   `Execution: delegated (3 sonnet units + haiku gate)` or `Execution: inline`.
 3. **Offer two choices**, as a numbered list:
    1. **View detailed plan** — print the plan file.
    2. **Copy handoff prompt** — copy the plan file to the clipboard so another model can execute it

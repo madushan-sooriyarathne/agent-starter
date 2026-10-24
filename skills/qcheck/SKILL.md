@@ -11,10 +11,12 @@ allowed-tools:
   - Bash(git status)
   - Bash(git log *)
   - Bash(git diff *)
+  - Bash(wc *)
   - Bash(pbcopy *)
   - Bash(wl-copy *)
   - Bash(xclip *)
   - Bash(clip.exe *)
+  - Agent
 ---
 
 # QCheck
@@ -41,35 +43,66 @@ Before analyzing the code:
 2. **Load skills.** Load `ponytail` when installed (optional — skip if missing), plus any installed skill relevant to the reviewed stack or subsystem.
 3. **Map the ground.** If `graphify-out/GRAPH_REPORT.md` exists, read it first for the god nodes and community structure before scanning raw files. Then grep for existing functionality, patterns, and naming conventions the scope touches — trace the real flow end to end.
 4. **Determine execution rules & skills.** Identify the rules (e.g. `.claude/rules/testing.md`) and skills (e.g. `ponytail`) that `/qcode` must load before executing the fix plan.
+5. **Decide the review strategy.** Review inline, or delegate per [Delegated Review](#delegated-review).
+
+## Delegated Review
+
+Delegate only when the host has a subagent tool that takes a model per call (Claude Code's
+`Agent` tool) and delegation costs fewer tokens than reviewing inline. Otherwise, for example on
+Antigravity, review inline.
+
+**Break-even rule.** Estimate the scope's size as chars/4 (`wc -c` on the changed files plus the
+diff). Each reviewer reads the whole scope, so every added reviewer adds that cost again.
+
+- Inline cost: `scope × P_opus`.
+- Delegated cost: `(briefs + findings + spot-checks) × P_opus + Σ reviewers (scope + cold start) × P_sonnet`.
+  As of 2026-10, `sonnet` costs about ½ of `opus` per token.
+- Delegate only when delegated cost is about 70% of inline cost or less. In practice that means
+  one or two reviewers on a large scope. Never fan out every reviewer by default.
+
+**Pick reviewers by what the scope touches.** Use the project's review agents
+(`.claude/agents/`) when installed, or else a general subagent with that reviewer's focus:
+
+- `code-reviewer`: any code change (the default single reviewer).
+- `security-reviewer`: auth, input handling, secrets, injection surfaces.
+- `silent-failure-hunter`: error handling, fallbacks, retries, async flows.
+- `performance-reviewer`: hot paths, queries, loops over large data.
+
+Run the chosen reviewers in parallel with the `sonnet` model alias, read-only. Give each one the
+scope and the loaded rules. Verify each finding against the cited `path:line` before you report
+it, drop duplicates and false positives, then continue with [Output](#output).
 
 ## Review Focus Areas
 
 ### Correctness
 
-- **Off-by-one:** `array[array.length]` vs `array.length - 1`, `i <= n` vs `i < n`, inclusive vs exclusive ranges, fence-post errors (n items need n-1 separators).
-- **Null/undefined:** properties on possibly-null values, missing optional chaining, array methods on possibly-undefined arrays, destructuring from possibly-null objects.
-- **Logic:** inverted conditions, short-circuits skipping side effects, `==` vs `===` (JS/TS), mutation of shared references, missing `break` in a switch (unless intentional and commented).
-- **Race conditions:** shared mutable state in async callbacks, read-then-write without atomicity, awaits depending on the same mutable variable, event handlers registered without cleanup.
+- **Off-by-one:** indexing one past the end, `i <= n` vs `i < n`, inclusive vs exclusive ranges, fence-post errors (n items need n-1 separators).
+- **Missing values:** using a possibly-absent value (null/undefined/None/nil) without a check.
+- **Logic:** inverted conditions, short-circuits skipping side effects, mutation of shared references, missing `break`/fallthrough in a switch (unless intentional and commented).
+- **Race conditions:** shared mutable state across concurrent tasks, read-then-write without atomicity, handlers or tasks registered without cleanup.
 - **Lifecycle:** state drift, memory leaks, improper setup/teardown.
+
+<!-- lang:review -->
 
 ### Error handling
 
-- Swallowed errors: `catch (e) {}` or `catch (e) { return null }`.
-- Missing `.catch()` on promise chains.
-- Wrapped errors that lose context: `throw new Error("failed")` discards the original.
-- Try/catch too broad, catching errors from unrelated code.
+- Swallowed errors: an empty handler, or one that returns a default as if it succeeded.
+- Wrapped errors that lose context: a new generic error that discards the original cause.
+- Handlers too broad, catching errors from unrelated code.
 - Missing cases: 404, file not found, parse error.
+
+<!-- lang:errors -->
 
 ### Naming
 
 - Names that lie: `isValid` returning a string, `getUser` that creates.
 - Generic where a specific name exists: `data`, `result`, `temp`, `item`.
 - Booleans missing an `is` / `has` / `should` prefix.
-- Abbreviations that obscure: `usr`, `mgr`, `ctx`.
+- Abbreviations that obscure: `usr`, `mgr` (idiomatic short names like Go's `ctx` are fine).
 
 ### Complexity & performance
 
-- Functions over ~30 lines; nesting deeper than 3 levels (early returns flatten); more than 3 parameters (use an options object).
+- Functions over ~30 lines; nesting deeper than 3 levels (early returns flatten); more than 3 parameters.
 - God functions doing read, validate, transform, persist, and notify.
 - **Performance:** O(n²) iterations, accidental serialization, N+1 queries, unmemoized expensive work, unnecessary allocations, unbounded data structures.
 - **Architecture:** leaky abstractions, broken separation of concerns, tight coupling, inconsistent error modeling, divergence from repository conventions, duplication where a helper already exists.
@@ -82,7 +115,7 @@ Before analyzing the code:
 
 ### What NOT to flag
 
-- Style handled by linters (formatting, semicolons, quotes).
+- Style handled by linters and formatters.
 - Minor naming preferences without clarity impact.
 - "I would have done it differently" without a concrete problem.
 - Types or docs for code outside the reviewed scope.
