@@ -12,6 +12,7 @@ allowed-tools:
   - Bash(git log *)
   - Bash(git diff *)
   - Bash(wc *)
+  - Bash(agent-browser *)
   - Bash(pbcopy *)
   - Bash(wl-copy *)
   - Bash(xclip *)
@@ -44,6 +45,7 @@ Before analyzing the code:
 3. **Map the ground.** If `graphify-out/GRAPH_REPORT.md` exists, read it first for the god nodes and community structure before scanning raw files. Then grep for existing functionality, patterns, and naming conventions the scope touches — trace the real flow end to end.
 4. **Determine execution rules & skills.** Identify the rules (e.g. `.claude/rules/testing.md`) and skills (e.g. `ponytail`) that `/qcode` must load before executing the fix plan.
 5. **Decide the review strategy.** Review inline, or delegate per [Delegated Review](#delegated-review).
+6. **Decide the browser check.** Run one per [Browser Check](#browser-check) when it applies.
 
 ## Delegated Review
 
@@ -71,6 +73,31 @@ diff). Each reviewer reads the whole scope, so every added reviewer adds that co
 Run the chosen reviewers in parallel with the `sonnet` model alias, read-only. Give each one the
 scope and the loaded rules. Verify each finding against the cited `path:line` before you report
 it, drop duplicates and false positives, then continue with [Output](#output).
+
+## Browser Check
+
+A browser check applies only when all three hold:
+
+- The `agent-browser` skill is available (listed in the session, or present under
+  `.claude/skills/agent-browser/` or `.agents/skills/agent-browser/`).
+- `command -v agent-browser` succeeds. If the skill is present but the CLI is missing, say
+  `browser check skipped: agent-browser CLI missing` in the output. Never skip silently.
+- The scope has a browser-observable effect: UI components, pages, styles, routing, forms,
+  client state, accessibility, or client performance (animation, LCP/INP/CLS, bundle size).
+
+Derive the flows from the routes and components in scope: each flow names the page, the steps,
+and the expected result. Dispatch them to one `haiku` subagent when the host takes a model per
+call; otherwise run them inline. No break-even estimate is needed: page snapshots and console
+output make up most of the tokens, and `haiku` costs about 1/40 of `opus`.
+
+The subagent loads the `agent-browser` skill and uses its commands. It starts the dev server in
+the background only if the URL does not respond, and stops only a server it started. It never
+edits files. For each flow it returns pass or fail, the failing step with the raw output that
+shows it, console errors, failed requests, and any performance numbers. It saves a screenshot
+only for a failed flow and returns the path, not the image.
+
+Retry a failed flow once to rule out timing flakiness. Trace each remaining failure to the code
+path that causes it before reporting it as a `[Browser]` finding.
 
 ## Review Focus Areas
 
@@ -130,6 +157,7 @@ the fix — shaped per `caveman` and `i-have-adhd`:
 
 - **[Silent Bug] path:line**: Cache key omits tenant ID, so concurrent lookups collide across tenants. Prepend `tenant_id` in the key builder.
 - **[Edge Case] path:line**: Empty collection throws an unhandled exception. Add an early return for the empty state.
+- **[Browser] /checkout, path:line**: Submit stays disabled after a valid card entry because the validity state never updates. Set it in the change handler.
 
 If nothing substantial is wrong, say so plainly and stop — no menu.
 
@@ -169,6 +197,9 @@ Detailed plan:
 
 Validation:
 <tests and checks to run>
+
+Browser verification:
+<the browser flows to re-run (URL, start command, flows, checks), or none>
 
 Execution rules:
 <scope boundaries — fix only the listed issues>

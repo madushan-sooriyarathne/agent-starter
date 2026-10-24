@@ -43,7 +43,8 @@ and environment constraints before planning.
 
 7. **Determine required rules & skills.** Identify repository rules (e.g. path-scoped rules in `.claude/rules/` / `.agents/rules/`) and skills (e.g. `ponytail`) that `/qcode` must load before executing the plan.
 8. **Decide the execution strategy.** Choose `inline` or `delegated` per [Execution Strategy](#execution-strategy).
-9. **Clarify ambiguities.** If an ambiguity materially changes implementation decisions, pause and ask targeted questions in a single grouped prompt. Document minor assumptions directly in the plan.
+9. **Plan browser verification.** If a browser check applies per [Browser Verification](#browser-verification), define its flows.
+10. **Clarify ambiguities.** If an ambiguity materially changes implementation decisions, pause and ask targeted questions in a single grouped prompt. Document minor assumptions directly in the plan.
 
 ## Execution Strategy
 
@@ -72,6 +73,27 @@ the expected diff and validation output). Let `P` be the per-token price of each
 **Unit constraints.** Each delegated unit owns a disjoint set of files, so no two subagents write
 the same file. Each unit is specified completely enough to run cold, without this conversation.
 A unit that fails these constraints merges into a neighbor or stays inline.
+
+## Browser Verification
+
+A browser check applies only when all three hold:
+
+- The `agent-browser` skill is available (listed in the session, or present under
+  `.claude/skills/agent-browser/` or `.agents/skills/agent-browser/`).
+- `command -v agent-browser` succeeds. If the skill is present but the CLI is missing, record
+  `browser check skipped: agent-browser CLI missing` in the plan. Never skip silently.
+- The change has a browser-observable effect: UI components, pages, styles, routing, forms,
+  client state, accessibility, or client performance (animation, LCP/INP/CLS, bundle size).
+  A server-only or API-only change does not qualify.
+
+Each flow names the page, the steps, and the expected result. For a performance change, also
+ask for a baseline measurement before any edit, so the result has something to compare against.
+Name credentials by environment variable only, never by value. Take command syntax from the
+`agent-browser` skill; do not write it into the plan.
+
+The browser check always runs on `haiku` when the host supports per-call models. No break-even
+estimate is needed: page snapshots and console output make up most of its tokens, and `haiku`
+costs about 1/40 of `opus`.
 
 ## Plan Structure
 
@@ -115,7 +137,17 @@ Build the plan with this schema. Enforce the `ponytail` ladder (YAGNI, smallest 
 - **Estimate**: inline ≈ <tokens> on `opus`; delegated ≈ <orchestrator tokens> on `opus` + <subagent tokens> per tier
 - **Units** (delegated only):
   - **U1**: model `sonnet`; files `<owned paths>`; steps <sequence numbers>; depends on <none | U#>; validate `<command>`
-- **Verification**: model `haiku` | inline; `<gate commands>`; browser check <url and flow, or none>
+- **Verification**: model `haiku` | inline; `<gate commands>`; browser check per Browser Verification, or none
+
+## Browser Verification
+
+- **Status**: <flows below | none (reason) | skipped: agent-browser CLI missing>
+- **URL**: `<base url>`; start with `<dev command>` unless already running
+- **Baseline**: <before-edit measurement for performance changes, or none>
+- **Flows**:
+  - **F1** `<route>`: <steps> → <expected result>
+- **Checks**: no console errors; no failed requests; <perf metric and threshold, if any>
+- **Auth**: <env var names, or none>
 
 ## File Manifest
 
@@ -154,6 +186,9 @@ Detailed plan:
 Validation:
 <targeted validation commands>
 
+Browser verification:
+<the Browser Verification section, or none>
+
 Execution strategy:
 <the Execution Strategy section: mode, units, verification>
 
@@ -168,7 +203,8 @@ Execution rules:
 2. **Show a TL;DR only**, shaped per `caveman` and `i-have-adhd`: lead with the next action and a
    time estimate, then the approach and scope (files touched) in a few lines.
    Include one line for the execution strategy, e.g.
-   `Execution: delegated (3 sonnet units + haiku gate)` or `Execution: inline`.
+   `Execution: delegated (3 sonnet units + haiku gate)` or `Execution: inline`, and one for the
+   browser check, e.g. `Browser: 2 flows (haiku)` or `Browser: none`.
 3. **Offer two choices**, as a numbered list:
    1. **View detailed plan** — print the plan file.
    2. **Copy handoff prompt** — copy the plan file to the clipboard so another model can execute it

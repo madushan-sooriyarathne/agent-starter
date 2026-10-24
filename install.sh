@@ -662,34 +662,42 @@ build_catalogs() {
     caveman ponytail ponytail-review ponytail-audit ponytail-debt
     design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui
     nextjs-perf-audit main-thread-performance shader-from-reference
-    rust-best-practices rust-async-patterns rust-testing rust-patterns)
+    rust-best-practices rust-async-patterns rust-testing rust-patterns
+    agent-browser)
   cat_skill_repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/skills https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills
     https://github.com/JuliusBrussee/caveman
     https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail
     https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill
     https://github.com/madushan-sooriyarathne/skills https://github.com/madushan-sooriyarathne/skills https://github.com/madushan-sooriyarathne/skills
-    https://github.com/apollographql/skills https://github.com/wshobson/agents https://github.com/affaan-m/ecc https://github.com/affaan-m/ecc)
+    https://github.com/apollographql/skills https://github.com/wshobson/agents https://github.com/affaan-m/ecc https://github.com/affaan-m/ecc
+    https://github.com/vercel-labs/agent-browser)
   cat_skill_skillnames=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator
     caveman ponytail ponytail-review ponytail-audit ponytail-debt
     design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui
     nextjs-perf-audit main-thread-performance shader-from-reference
-    rust-best-practices rust-async-patterns rust-testing rust-patterns)
+    rust-best-practices rust-async-patterns rust-testing rust-patterns
+    agent-browser)
   cat_skill_descs=("UI / component design" "web app testing" "Next.js SEO/GEO audit + fix" "brand voice & guidelines" "build MCP servers" "author new skills"
     "ultra-compressed replies" "lazy/YAGNI build discipline" "review diff for over-engineering" "whole-repo over-engineering audit" "harvest ponytail: debt comments"
     "anti-slop frontend design" "upgrade existing UI to premium" "agency-grade visual design" "clean editorial minimalist UI" "brutalist / tactical telemetry UI"
     "Next.js performance audit" "main-thread / animation perf budget" "WebGL shader from reference image/video"
-    "Rust best practices" "Rust async / tokio patterns" "Rust testing" "idiomatic Rust patterns")
+    "Rust best practices" "Rust async / tokio patterns" "Rust testing" "idiomatic Rust patterns"
+    "live browser checks for /qcode + /qcheck")
   cat_skill_defaults=(0 1 0 0 0 0
     1 1 0 0 0
     0 0 0 0 0
     0 0 0
-    0 0 0 0)
+    0 0 0 0
+    0)
   [ "$HAS_NEXT" = "1" ] && {
     cat_skill_defaults[0]=1
     cat_skill_defaults[2]=1
     cat_skill_defaults[16]=1
   }
-  [ "$HAS_FRONTEND" = "1" ] && cat_skill_defaults[17]=1
+  [ "$HAS_FRONTEND" = "1" ] && {
+    cat_skill_defaults[17]=1
+    cat_skill_defaults[23]=1
+  }
   [ "$HAS_RUST" = "1" ] && {
     cat_skill_defaults[19]=1
     cat_skill_defaults[20]=1
@@ -1764,6 +1772,9 @@ if [ ${#sel_skills[@]} -gt 0 ]; then
         case "$skn" in
           caveman) append_contextmd both "$CAVEMAN_CTX" ;;
           ponytail) append_contextmd both "$PONYTAIL_CTX" ;;
+          # The skill is instructions only; the browser checks also need the CLI + its Chromium.
+          agent-browser) command -v agent-browser >/dev/null 2>&1 ||
+            say "    ${DIM}agent-browser CLI not found — browser checks stay skipped until: npm i -g agent-browser && agent-browser install${RESET}" ;;
         esac
       else
         skip "skill failed: $skn (private repos need 'gh auth' — continuing)"

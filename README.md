@@ -150,7 +150,7 @@ bunx skills add <repo-url> --skill <skill-name> -a claude-code -y
 | `systematic-debugging`        | `obra/superpowers`                     | Always                        |
 | `next-best-practices`         | `vercel-labs/next-skills`              | Next.js detected              |
 | `emil-design-eng`             | `emilkowalski/skills`                  | Next.js + framer-motion       |
-| `agent-browser`               | `vercel-labs/agent-browser`            | Playwright/Cypress detected   |
+| `agent-browser`               | `vercel-labs/agent-browser`            | Frontend detected             |
 | `web-design-guidelines`       | `vercel-labs/agent-skills`             | Frontend detected             |
 | `tdd`                         | `mattpocock/skills`                    | Test config detected          |
 | `to-prd`                      | `mattpocock/skills`                    | Opt-in                        |
