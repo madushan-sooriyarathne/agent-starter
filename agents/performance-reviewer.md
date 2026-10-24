@@ -70,6 +70,10 @@ Run `git diff --name-only`. Read each changed file plus its callers. Determine p
 - Unbounded worker, goroutine, or thread creation. Use a pool.
 - Missing connection pooling for DB or HTTP clients.
 
+## Language specifics
+
+<!-- lang:perf -->
+
 ## What NOT to flag
 
 - Micro-optimizations with no measurable impact.

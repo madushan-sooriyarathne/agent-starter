@@ -52,6 +52,10 @@ Run `git diff --name-only`. Split changed files into production code and tests. 
 - Sleeps / arbitrary timeouts added to "fix" flakiness instead of fixing the race.
 - A test renamed/rewritten so it no longer covers the regression it was written for (check git log of the test file when suspicious).
 
+## Language specifics
+
+<!-- lang:testing -->
+
 ## What NOT to flag
 
 - Missing tests for code the diff didn't change.

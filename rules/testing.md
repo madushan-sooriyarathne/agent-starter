@@ -5,4 +5,4 @@
 - Flaky test? Fix it or delete it. Never retry to make it pass.
 - Prefer real implementations. Mock only at system boundaries (network, filesystem, clock, randomness).
 - One assertion per test. Test names describe behavior. Arrange-Act-Assert. No `if` or loops in tests.
-- Never `expect(true)` or check a mock was called without verifying arguments.
+- Never assert a tautology, or check a mock was called without verifying arguments.

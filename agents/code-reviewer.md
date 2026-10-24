@@ -25,34 +25,37 @@ Run `git diff --name-only` for changed files. Read each, grep for related patter
 
 ## Correctness
 
-**Off-by-one**: `array[array.length]` vs `array.length - 1`. `i <= n` vs `i < n`. Inclusive vs exclusive ranges. Fence-post errors (n items need n-1 separators).
+**Off-by-one**: indexing one past the end. `i <= n` vs `i < n`. Inclusive vs exclusive ranges. Fence-post errors (n items need n-1 separators).
 
-**Null/undefined**: properties on possibly-null values, missing optional chaining, array methods on possibly-undefined arrays, destructuring from possibly-null objects.
+**Missing values**: using a possibly-absent value (null/undefined/None/nil) without a check.
 
-**Logic**: inverted conditions, short-circuit skipping side effects, `==` vs `===` (JS/TS), mutation of shared references, missing `break` in switch (unless intentional and commented).
+**Logic**: inverted conditions, short-circuit skipping side effects, mutation of shared references, missing `break`/fallthrough in switch (unless intentional and commented).
 
-**Race conditions**: shared mutable state in async callbacks, read-then-write without atomicity, awaits depending on the same mutable variable, event handlers registered without cleanup.
+**Race conditions**: shared mutable state across concurrent tasks, read-then-write without atomicity, handlers or tasks registered without cleanup.
+
+<!-- lang:review -->
 
 ## Error handling
 
-- Swallowed errors: `catch (e) {}` or `catch (e) { return null }`.
-- Missing `.catch()` on promise chains.
-- Wrapped errors that lose context: `throw new Error("failed")` discards the original.
-- Try/catch too broad, catching errors from unrelated code.
+- Swallowed errors: an empty handler, or one that returns a default as if it succeeded.
+- Wrapped errors that lose context: a new generic error that discards the original cause.
+- Handlers too broad, catching errors from unrelated code.
 - Missing cases: 404? File not found? Parse error?
+
+<!-- lang:errors -->
 
 ## Naming
 
 - Names that lie: `isValid` returning a string, `getUser` that creates.
 - Generic where a specific name exists: `data`, `result`, `temp`, `item`.
 - Booleans missing `is` / `has` / `should` prefix.
-- Abbreviations that obscure: `usr`, `mgr`, `ctx`.
+- Abbreviations that obscure: `usr`, `mgr` (idiomatic short names like Go's `ctx` are fine).
 
 ## Complexity
 
 - Functions over ~30 lines.
 - Nesting deeper than 3 levels (early returns flatten).
-- More than 3 parameters (use options object).
+- More than 3 parameters.
 - God functions doing read, validate, transform, persist, and notify.
 
 ## Tests
@@ -63,7 +66,7 @@ Run `git diff --name-only` for changed files. Read each, grep for related patter
 
 ## What NOT to flag
 
-- Style handled by linters (formatting, semicolons, quotes).
+- Style handled by linters and formatters.
 - Minor naming preferences without clarity impact.
 - "I would have done it differently" without a concrete problem.
 - Suggestions to add types or docs to code you didn't review.

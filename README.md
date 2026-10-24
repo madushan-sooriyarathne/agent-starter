@@ -150,7 +150,7 @@ bunx skills add <repo-url> --skill <skill-name> -a claude-code -y
 | `systematic-debugging`        | `obra/superpowers`                     | Always                        |
 | `next-best-practices`         | `vercel-labs/next-skills`              | Next.js detected              |
 | `emil-design-eng`             | `emilkowalski/skills`                  | Next.js + framer-motion       |
-| `agent-browser`               | `vercel-labs/agent-browser`            | Playwright/Cypress detected   |
+| `agent-browser`               | `vercel-labs/agent-browser`            | Frontend detected             |
 | `web-design-guidelines`       | `vercel-labs/agent-skills`             | Frontend detected             |
 | `tdd`                         | `mattpocock/skills`                    | Test config detected          |
 | `to-prd`                      | `mattpocock/skills`                    | Opt-in                        |
@@ -176,6 +176,18 @@ bunx skills add <repo-url> --skill <skill-name> -a claude-code -y
 ### CLAUDE.md
 
 Copies `templates/CLAUDE.template.md` to `./CLAUDE.md` (asks before overwriting). Includes stack, code-style rules, monorepo layout sketch, and placeholder `Project Overview / Key Decisions / Current Focus / Out of Scope` sections.
+
+### Language tailoring
+
+Bundled skills, workflow commands, agents, and the `code-quality`/`error-handling`/`security`
+rules are language-neutral at the source and carry `<!-- lang:<section> -->` markers. At install
+time each marker is filled from the detected language profile(s) in `lang/` — `typescript`
+(`package.json`/`tsconfig.json`), `rust` (`Cargo.toml`), `go` (`go.mod`) — so a Rust project's
+`/qgit` runs `cargo fmt --check` → `cargo clippy` → `cargo test`, its `test-writer` writes
+`#[cfg(test)]` modules, and `settings.json` pre-allows `cargo` commands. Multi-language projects
+get one labeled block per language. Re-running in gap-analysis mode offers to re-tailor
+installed files when the project's languages change (in place — edits outside the blocks are
+kept). See `lang/README.md`.
 
 ## Safety properties
 
@@ -225,6 +237,7 @@ agent-starter/
 ├── rules/                            # 16 rule files
 ├── hooks/                            # 10 hooks × 2 hosts (claude/ + antigravity/) + tests/
 ├── skills/                           # 14 bundled skill dirs
+├── lang/                             # language profiles (typescript, rust, go) filling <!-- lang --> markers
 ├── plugins/                          # setup-agents plugin (plugin.json + skill copy)
 ├── scripts/
 │   ├── test.sh                       # single consistency gate (run before every commit)

@@ -51,7 +51,7 @@ skip() { printf '  %s•%s %s\n' "$DIM" "$RESET" "$*"; }
 INTERACTIVE=0
 if (exec </dev/tty) 2>/dev/null; then INTERACTIVE=1; fi
 
-# Workflow commands: repo-bundled slash-command skills copied verbatim into the
+# Workflow commands: repo-bundled slash-command skills copied (language-tailored) into the
 # project (NOT bunx-installed like the external skills catalog). Host-neutral —
 # each SKILL.md references CLAUDE.md/AGENTS.md so one source serves both hosts.
 # WANT_WORKFLOW defaults 0; select_all() flips it on for standard/full or prompts.
@@ -249,7 +249,8 @@ has_any '@theme*' >/dev/null 2>&1 && HAS_TAILWIND=1
 # -- cross-language signals --
 { has_any 'jest.config.*' || has_any 'vitest.config.*' || [ -f "$TARGET/pytest.ini" ] ||
   [ -f "$TARGET/conftest.py" ] || has_any 'playwright.config.*' || has_dir '__tests__' ||
-  has_dir 'spec' || has_dir 'test'; } && HAS_TESTS=1
+  has_dir 'spec' || has_dir 'test' || has_dir 'tests' || has_any '*_test.go' ||
+  { [ "$HAS_RUST" = "1" ] && grep -rqs '#\[test\]' "$TARGET/src"; }; } && HAS_TESTS=1
 { has_any '*.tsx' || has_any '*.jsx' || has_any '*.vue' || has_any '*.svelte' ||
   has_dir 'components' || has_dir 'pages' || has_dir 'views'; } && HAS_FRONTEND=1
 { has_dir 'controllers' || has_dir 'routes' || has_dir 'handlers' || has_dir 'services' ||
@@ -290,6 +291,17 @@ detectedStack=()
 [ "$HAS_RUBY" = "1" ] && detectedStack+=("ruby")
 [ "$HAS_PHP" = "1" ] && detectedStack+=("php")
 [ "$HAS_JAVA" = "1" ] && detectedStack+=("java")
+
+# Language profiles (lang/<id>.md) whose sections fill the <!-- lang:<section> -->
+# markers in installed skills, rules, agents, and the project doc. Fixed order.
+LANGS=()
+{ [ "$HAS_TS" = "1" ] || [ "$HAS_PKG" = "1" ]; } && LANGS+=(typescript)
+[ "$HAS_RUST" = "1" ] && LANGS+=(rust)
+[ "$HAS_GO" = "1" ] && LANGS+=(go)
+LANGS_CSV="$(
+  IFS=,
+  printf '%s' "${LANGS[*]:-}"
+)"
 
 # ---- labeled stack summary (mirrors skill Step 1.5) ----
 row() { # row "Label" "value" ; prints only when value non-empty, else dim "—"
@@ -342,6 +354,7 @@ row "Testing:" "$ts"
 row "Formatter:" "$fmt"
 row "Typecheck:" "$tc"
 row "Pkg mgr:" "$pm"
+row "Tailoring:" "${LANGS_CSV//,/, }"
 row "Git:" "$git_s"
 row "CI:" "$ci"
 if [ "$GAP_MODE" = "1" ]; then
@@ -510,6 +523,86 @@ copy_managed() { # copy_managed <src> <dest> <label> ; returns 0 if a fresh copy
   return 1
 }
 
+# lang_fill <file> — replace each <!-- lang:<section> --> marker (fresh copy) or
+# existing <!-- lang:<section>=<langs> --> … <!-- /lang --> block (re-tailor)
+# with that ## section from every detected language's lang/<id>.md profile.
+# The installed block keeps its open/close comments so a later run can refill
+# it in place without touching user edits outside it.
+lang_fill() {
+  local f="$1" opens closes
+  grep -q '<!-- lang:' "$f" 2>/dev/null || return 0
+  opens=$(grep -c '<!-- lang:[a-z-]*=' "$f")
+  closes=$(grep -c '<!-- /lang -->' "$f")
+  if [ "$opens" != "$closes" ]; then
+    skip "$(basename "$f"): unbalanced <!-- lang --> block — not re-tailored"
+    return 0
+  fi
+  awk -v langs="$LANGS_CSV" -v dir="$SCRIPT_DIR/lang" '
+    function emit(sec, ind,   n, ids, i, j, k, path, line, on, title, body, out, printed) {
+      print ind "<!-- lang:" sec "=" langs " -->"
+      n = split(langs, ids, ",")
+      for (i = 1; i <= n; i++) {
+        path = dir "/" ids[i] ".md"; on = 0; title = ""; body = ""
+        while ((getline line < path) > 0) {
+          if (title == "" && line ~ /^# /) title = substr(line, 3)
+          if (line ~ /^## /) { on = (line == "## " sec); continue }
+          if (on) body = body line "\n"
+        }
+        close(path)
+        sub(/^\n+/, "", body); sub(/\n+$/, "", body)
+        if (body == "") continue
+        if (printed) print ""
+        printed = 1
+        print ind "**" title ":**"
+        print ""
+        k = split(body, out, "\n")
+        for (j = 1; j <= k; j++) print (out[j] == "" ? "" : ind out[j])
+      }
+      print ind "<!-- /lang -->"
+    }
+    skip { if ($0 ~ /<!-- \/lang -->/) skip = 0; next }
+    match($0, /<!-- lang:[a-z-]+(=[a-z,]*)? -->/) {
+      ind = substr($0, 1, RSTART - 1)
+      tag = substr($0, RSTART + 10, RLENGTH - 14)
+      sec = tag
+      eq = index(tag, "=")
+      if (eq) { sec = substr(tag, 1, eq - 1); skip = 1 }
+      emit(sec, ind)
+      next
+    }
+    { print }
+  ' "$f" >"$f.lang.$$" && mv "$f.lang.$$" "$f"
+}
+
+# lang_recorded <file> — the language list(s) recorded in a file's filled
+# blocks, one per line (empty output = no filled blocks).
+lang_recorded() { grep -o '<!-- lang:[a-z-]*=[a-z,]* -->' "$1" 2>/dev/null | sed 's/.*=\([a-z,]*\) -->/\1/' | sort -u; }
+
+# Rewrite rule/skill `paths:` globs from src/ to the project's real source dir.
+rewrite_paths() {
+  [ -n "$PRIMARY_SRC_DIR" ] && grep -q '^paths:' "$1" 2>/dev/null || return 0
+  sed -i.bak "/^paths:/,/^---/ s#\"src/#\"$PRIMARY_SRC_DIR/#g" "$1"
+  rm -f "$1.bak"
+}
+
+# ag_skill_write <src> <dest> <name> — Antigravity skill from an agent or skill
+# source: frontmatter reduced to name+description (agy is picky about extra
+# keys), body carried verbatim, then language-tailored.
+ag_skill_write() {
+  local src="$1" dest="$2" name="$3" desc
+  mkdir -p "$(dirname "$dest")"
+  desc="$(awk -F': ' '/^description:/{ $1=""; sub(/^: /,""); print substr($0,2); exit }' "$src")"
+  {
+    printf '%s\n' "---"
+    printf 'name: %s\n' "$name"
+    printf 'description: %s\n' "${desc:-$name}"
+    printf '%s\n' "---"
+    # Body = everything after the closing frontmatter delimiter.
+    awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$src"
+  } >"$dest"
+  lang_fill "$dest"
+}
+
 # ========================================================================
 # Step 2 — Catalogs + selection
 # ========================================================================
@@ -521,7 +614,7 @@ build_catalogs() {
   local i
   # --- Agents ---
   cat_agent_names=(code-reviewer security-reviewer performance-reviewer sanity-reviewer doc-reviewer frontend-designer pr-test-analyzer silent-failure-hunter)
-  cat_agent_descs=("TS/Next/Hono correctness" "auth, API, env, injection" "re-renders, N+1, bundle" "Sanity schema & GROQ" "docs, README, CLAUDE.md" "tokens-first UI design" "test quality, not existence" "swallowed errors, fake success")
+  cat_agent_descs=("correctness, error handling" "auth, API, env, injection" "N+1, allocations, re-renders" "Sanity schema & GROQ" "docs, README, CLAUDE.md" "tokens-first UI design" "test quality, not existence" "swallowed errors, fake success")
   cat_agent_defaults=(1 0 0 0 1 0 0 1)
   { [ "$HAS_AUTH" = "1" ] || [ "$HAS_BACKEND" = "1" ]; } && cat_agent_defaults[1]=1
   { [ "$HAS_NEXT" = "1" ] || [ "$HAS_DRIZZLE" = "1" ]; } && cat_agent_defaults[2]=1
@@ -569,34 +662,42 @@ build_catalogs() {
     caveman ponytail ponytail-review ponytail-audit ponytail-debt
     design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui
     nextjs-perf-audit main-thread-performance shader-from-reference
-    rust-best-practices rust-async-patterns rust-testing rust-patterns)
+    rust-best-practices rust-async-patterns rust-testing rust-patterns
+    agent-browser)
   cat_skill_repos=(https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/madushan-sooriyarathne/skills https://github.com/anthropics/skills https://github.com/anthropics/skills https://github.com/anthropics/skills
     https://github.com/JuliusBrussee/caveman
     https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail https://github.com/DietrichGebert/ponytail
     https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill https://github.com/Leonxlnx/taste-skill
     https://github.com/madushan-sooriyarathne/skills https://github.com/madushan-sooriyarathne/skills https://github.com/madushan-sooriyarathne/skills
-    https://github.com/apollographql/skills https://github.com/wshobson/agents https://github.com/affaan-m/ecc https://github.com/affaan-m/ecc)
+    https://github.com/apollographql/skills https://github.com/wshobson/agents https://github.com/affaan-m/ecc https://github.com/affaan-m/ecc
+    https://github.com/vercel-labs/agent-browser)
   cat_skill_skillnames=(frontend-design webapp-testing next-pro-seo brand-guidelines mcp-builder skill-creator
     caveman ponytail ponytail-review ponytail-audit ponytail-debt
     design-taste-frontend redesign-existing-projects high-end-visual-design minimalist-ui industrial-brutalist-ui
     nextjs-perf-audit main-thread-performance shader-from-reference
-    rust-best-practices rust-async-patterns rust-testing rust-patterns)
+    rust-best-practices rust-async-patterns rust-testing rust-patterns
+    agent-browser)
   cat_skill_descs=("UI / component design" "web app testing" "Next.js SEO/GEO audit + fix" "brand voice & guidelines" "build MCP servers" "author new skills"
     "ultra-compressed replies" "lazy/YAGNI build discipline" "review diff for over-engineering" "whole-repo over-engineering audit" "harvest ponytail: debt comments"
     "anti-slop frontend design" "upgrade existing UI to premium" "agency-grade visual design" "clean editorial minimalist UI" "brutalist / tactical telemetry UI"
     "Next.js performance audit" "main-thread / animation perf budget" "WebGL shader from reference image/video"
-    "Rust best practices" "Rust async / tokio patterns" "Rust testing" "idiomatic Rust patterns")
+    "Rust best practices" "Rust async / tokio patterns" "Rust testing" "idiomatic Rust patterns"
+    "live browser checks for /qcode + /qcheck")
   cat_skill_defaults=(0 1 0 0 0 0
     1 1 0 0 0
     0 0 0 0 0
     0 0 0
-    0 0 0 0)
+    0 0 0 0
+    0)
   [ "$HAS_NEXT" = "1" ] && {
     cat_skill_defaults[0]=1
     cat_skill_defaults[2]=1
     cat_skill_defaults[16]=1
   }
-  [ "$HAS_FRONTEND" = "1" ] && cat_skill_defaults[17]=1
+  [ "$HAS_FRONTEND" = "1" ] && {
+    cat_skill_defaults[17]=1
+    cat_skill_defaults[23]=1
+  }
   [ "$HAS_RUST" = "1" ] && {
     cat_skill_defaults[19]=1
     cat_skill_defaults[20]=1
@@ -762,6 +863,55 @@ select_all() {
 # ========================================================================
 # Step 1.7 — Gap-analysis flow (existing host config → reconcile, no tiers)
 # ========================================================================
+# Re-tailor candidates (RT_* parallel arrays). "refill": filled <!-- lang -->
+# blocks record a different language set than the scan found — refilled in
+# place, touching only those blocks. "recopy": a copy installed before language
+# profiles existed (no blocks) whose source now has markers — re-copied from
+# source, which overwrites local edits, so it is opt-in.
+desc_of() { grep -m1 '^description:' "$1" 2>/dev/null | sed 's/^description://' | tr -d '":' | tr -s ' ' | sed 's/^ //; s/ $//'; }
+rt_check() { # rt_check <claude|rule|ag-skill|doc> <src> <dest>
+  local kind="$1" src="$2" dest="$3"
+  [ -f "$dest" ] || return 0
+  if grep -q '<!-- lang:[a-z-]*=' "$dest"; then
+    [ "$(lang_recorded "$dest")" = "$LANGS_CSV" ] && ! grep -q '<!-- lang:[a-z-]* -->' "$dest" && return 0
+    RT_MODE+=(refill)
+  elif grep -q '<!-- lang:' "$dest"; then
+    RT_MODE+=(refill) # raw, never-filled marker
+  else
+    [ "$kind" = doc ] && return 0 # never recopy the project doc
+    grep -q '<!-- lang:' "$src" 2>/dev/null || return 0
+    # Only our own copies: an external skill can share a bundled skill's name (tdd).
+    [ "$(desc_of "$src")" = "$(desc_of "$dest")" ] || return 0
+    RT_MODE+=(recopy)
+  fi
+  RT_KIND+=("$kind")
+  RT_SRC+=("$src")
+  RT_DEST+=("$dest")
+}
+scan_retailor() {
+  local n
+  RT_MODE=()
+  RT_KIND=()
+  RT_SRC=()
+  RT_DEST=()
+  if [ "$WANT_CLAUDE" = "1" ]; then
+    for n in "${cat_agent_names[@]}"; do rt_check claude "$SCRIPT_DIR/agents/$n.md" "$TARGET/.claude/agents/$n.md"; done
+    for n in "${cat_rule_names[@]}"; do rt_check rule "$SCRIPT_DIR/rules/$n.md" "$TARGET/.claude/rules/$n.md"; done
+    for n in "${cat_bundled_names[@]}" "${WORKFLOW_SKILLS[@]}"; do
+      rt_check claude "$SCRIPT_DIR/skills/$n/SKILL.md" "$TARGET/.claude/skills/$n/SKILL.md"
+    done
+    rt_check doc "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/CLAUDE.md"
+  fi
+  if [ "$WANT_AG" = "1" ]; then
+    for n in "${cat_rule_names[@]}"; do rt_check rule "$SCRIPT_DIR/rules/$n.md" "$TARGET/.agents/rules/$n.md"; done
+    for n in "${cat_agent_names[@]}"; do rt_check ag-skill "$SCRIPT_DIR/agents/$n.md" "$TARGET/.agents/skills/$n/SKILL.md"; done
+    for n in "${cat_bundled_names[@]}" "${WORKFLOW_SKILLS[@]}"; do
+      rt_check ag-skill "$SCRIPT_DIR/skills/$n/SKILL.md" "$TARGET/.agents/skills/$n/SKILL.md"
+    done
+    rt_check doc "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/AGENTS.md"
+  fi
+}
+
 # Builds the install selection (missing catalog items) and REMOVE_* lists
 # (orphans, per host). Scope is agents/rules/hooks — the deterministic managed
 # core. ponytail: skills/plugins are not gap-diffed (external skills are
@@ -769,7 +919,8 @@ select_all() {
 # install to add those. Sets GAP_INSYNC=1 when nothing needs doing.
 run_gap_flow() {
   GAP_INSYNC=0
-  local n miss
+  local n miss i
+  scan_retailor
 
   # --- Missing: rec_* absent from at least one selected host. copy_managed
   # skips existing files, so a single install pass covers both hosts. ---
@@ -848,13 +999,18 @@ run_gap_flow() {
   local n_cl_orph=$((${#ORPH_CL_AGENTS[@]} + ${#ORPH_CL_RULES[@]} + ${#ORPH_CL_HOOKS[@]}))
   local n_ag_orph=$((${#ORPH_AG_AGENTS[@]} + ${#ORPH_AG_RULES[@]} + ${#ORPH_AG_HOOKS[@]}))
   local total_orph=$((n_cl_orph + n_ag_orph))
+  local n_refill=0 n_recopy=0
+  for n in "${RT_MODE[@]:-}"; do
+    [ "$n" = refill ] && n_refill=$((n_refill + 1))
+    [ "$n" = recopy ] && n_recopy=$((n_recopy + 1))
+  done
 
   local gt=""
   [ "$CLAUDE_GAP" = "1" ] && gt="Claude Code"
   [ "$AG_GAP" = "1" ] && gt="${gt:+$gt + }Antigravity"
   head "Gap analysis (Targets: ${gt:-—})"
 
-  if [ "$total_miss" = "0" ] && [ "$total_orph" = "0" ]; then
+  if [ "$total_miss" = "0" ] && [ "$total_orph" = "0" ] && [ ${#RT_DEST[@]} -eq 0 ]; then
     say "  ${GREEN}In sync${RESET} — setup already matches the current stack. Nothing to do."
     GAP_INSYNC=1
     sel_agents=()
@@ -886,6 +1042,16 @@ run_gap_flow() {
       for n in "${ORPH_AG_HOOKS[@]:-}"; do [ -n "$n" ] && say "      $n (hook)"; done
     fi
   fi
+  if [ ${#RT_DEST[@]} -gt 0 ]; then
+    say "  ${BOLD}Re-tailor${RESET} — language-specific sections out of date (now: ${LANGS_CSV:-none}):"
+    for ((i = 0; i < ${#RT_DEST[@]}; i++)); do
+      if [ "${RT_MODE[$i]}" = recopy ]; then
+        say "    recopy  ${RT_DEST[$i]#"$TARGET"/} ${DIM}(pre-profile copy — overwrites local edits)${RESET}"
+      else
+        say "    refill  ${RT_DEST[$i]#"$TARGET"/}"
+      fi
+    done
+  fi
 
   sel_agents=()
   sel_rules=()
@@ -896,6 +1062,7 @@ run_gap_flow() {
   # Non-interactive: install all missing (safe — copy_managed skips existing),
   # never auto-remove orphans (destructive).
   if [ "$INTERACTIVE" != "1" ]; then
+    WANT_REFILL=1 # in-place, touches only our blocks — safe unattended; recopy is not
     [ ${#MISS_AGENTS[@]} -gt 0 ] && sel_agents=("${MISS_AGENTS[@]}")
     [ ${#MISS_RULES[@]} -gt 0 ] && sel_rules=("${MISS_RULES[@]}")
     [ ${#MISS_HOOKS[@]} -gt 0 ] && sel_hooks=("${MISS_HOOKS[@]}")
@@ -986,6 +1153,26 @@ run_gap_flow() {
       *) : ;; # keep (default)
     esac
   fi
+
+  # Round 3 — re-tailor. Refill is in-place; recopy overwrites, so it's offered separately.
+  if [ ${#RT_DEST[@]} -gt 0 ]; then
+    if [ "$n_recopy" -gt 0 ]; then
+      printf "\nRe-tailor? [A]ll / [r]efill only ${DIM}(keeps local edits; skips the %s recopy)${RESET} / [s]kip: " "$n_recopy"
+      ask_line
+      case "$REPLY_LINE" in
+        s | S | skip | SKIP) : ;;
+        r | R | refill | REFILL) WANT_REFILL=1 ;;
+        *)
+          WANT_REFILL=1
+          WANT_RECOPY=1
+          ;;
+      esac
+    else
+      printf "\nRe-tailor %s file(s) in place? [Y/n]: " "$n_refill"
+      ask_line
+      case "$REPLY_LINE" in n | N | no | NO) : ;; *) WANT_REFILL=1 ;; esac
+    fi
+  fi
   return 0
 }
 
@@ -999,6 +1186,18 @@ print_plan() {
   say "  Bundled skills:  ${sel_bundled[*]:-(none)}"
   say "  Workflow cmds:   $([ "$WANT_WORKFLOW" = "1" ] && echo "${WORKFLOW_SKILLS[*]}" || echo "(none)")"
   say "  CLAUDE.md:       $([ "$WANT_CLAUDEMD" = "1" ] && echo "install/overwrite" || echo "skip")"
+  say "  Tailor for:      ${LANGS_CSV:-(no language profile)}"
+  if [ ${#RT_DEST[@]} -gt 0 ]; then
+    local m nf=0 nc=0
+    for m in "${RT_MODE[@]}"; do
+      if [ "$m" = refill ]; then
+        [ "$WANT_REFILL" = "1" ] && nf=$((nf + 1))
+      else
+        [ "$WANT_RECOPY" = "1" ] && nc=$((nc + 1))
+      fi
+    done
+    say "  Re-tailor:       $nf refill, $nc recopy ${DIM}(of ${#RT_DEST[@]} flagged)${RESET}"
+  fi
   local any_rm=0
   [ ${#REMOVE_CL_AGENTS[@]} -gt 0 ] && any_rm=1
   [ ${#REMOVE_CL_RULES[@]} -gt 0 ] && any_rm=1
@@ -1030,6 +1229,12 @@ REMOVE_CL_HOOKS=()
 REMOVE_AG_AGENTS=()
 REMOVE_AG_RULES=()
 REMOVE_AG_HOOKS=()
+RT_MODE=()
+RT_KIND=()
+RT_SRC=()
+RT_DEST=()
+WANT_REFILL=0
+WANT_RECOPY=0
 
 if [ "$MINIMAL_BASELINE" = "1" ]; then
   sel_plugins=()
@@ -1092,7 +1297,8 @@ if [ "$WANT_CLAUDE" = "1" ]; then
   if [ ${#sel_agents[@]} -gt 0 ]; then
     mkdir -p "$TARGET/.claude/agents"
     for a in "${sel_agents[@]}"; do
-      copy_managed "$SCRIPT_DIR/agents/$a.md" "$TARGET/.claude/agents/$a.md" "agent: $a"
+      copy_managed "$SCRIPT_DIR/agents/$a.md" "$TARGET/.claude/agents/$a.md" "agent: $a" &&
+        lang_fill "$TARGET/.claude/agents/$a.md"
     done
   fi
 
@@ -1108,6 +1314,7 @@ if [ "$WANT_CLAUDE" = "1" ]; then
           AFTER_SUM="$(cksum <"$RULE_FILE")"
           [ "$BEFORE_SUM" != "$AFTER_SUM" ] && skip "rule: $r — paths: rewritten src/ -> $PRIMARY_SRC_DIR/"
         fi
+        lang_fill "$TARGET/.claude/rules/$r.md"
       fi
     done
   fi
@@ -1120,27 +1327,25 @@ if [ "$WANT_CLAUDE" = "1" ]; then
     done
   fi
 
-  # Workflow commands → .claude/skills/<name>/SKILL.md (verbatim; Claude reads
-  # the full frontmatter — argument-hint, disable-model-invocation, allowed-tools).
+  # Workflow commands → .claude/skills/<name>/SKILL.md (full frontmatter — Claude
+  # reads argument-hint, disable-model-invocation, allowed-tools), language-tailored.
   if [ "$WANT_WORKFLOW" = "1" ]; then
     for w in "${WORKFLOW_SKILLS[@]}"; do
       mkdir -p "$TARGET/.claude/skills/$w"
-      copy_managed "$SCRIPT_DIR/skills/$w/SKILL.md" "$TARGET/.claude/skills/$w/SKILL.md" "workflow: $w"
+      copy_managed "$SCRIPT_DIR/skills/$w/SKILL.md" "$TARGET/.claude/skills/$w/SKILL.md" "workflow: $w" &&
+        lang_fill "$TARGET/.claude/skills/$w/SKILL.md"
     done
   fi
 
-  # Bundled skills → .claude/skills/<name>/SKILL.md (verbatim, same as workflow).
-  # Minimal project adaptation: reuse the rules `paths:` src rewrite — a no-op
-  # for skills that carry no `paths:` frontmatter (nearly all), so they land
-  # verbatim; a skill reads CLAUDE.md/AGENTS.md host-neutrally already.
+  # Bundled skills → .claude/skills/<name>/SKILL.md (same as workflow). Project
+  # adaptation: the rules `paths:` src rewrite (a no-op for skills without
+  # `paths:` frontmatter — nearly all) plus the language-marker fill.
   if [ ${#sel_bundled[@]} -gt 0 ]; then
     for w in "${sel_bundled[@]}"; do
       mkdir -p "$TARGET/.claude/skills/$w"
       if copy_managed "$SCRIPT_DIR/skills/$w/SKILL.md" "$TARGET/.claude/skills/$w/SKILL.md" "skill: $w"; then
-        if [ -n "$PRIMARY_SRC_DIR" ] && grep -q '^paths:' "$TARGET/.claude/skills/$w/SKILL.md" 2>/dev/null; then
-          sed -i.bak "/^paths:/,/^---/ s#\"src/#\"$PRIMARY_SRC_DIR/#g" "$TARGET/.claude/skills/$w/SKILL.md"
-          rm -f "$TARGET/.claude/skills/$w/SKILL.md.bak"
-        fi
+        rewrite_paths "$TARGET/.claude/skills/$w/SKILL.md"
+        lang_fill "$TARGET/.claude/skills/$w/SKILL.md"
       fi
     done
   fi
@@ -1165,6 +1370,11 @@ if [ "$WANT_CLAUDE" = "1" ]; then
   PERMS+=("Bash(git status)" "Bash(git diff *)" "Bash(git log *)" "Bash(git branch *)" "Bash(git stash *)"
     "Bash(git add *)" "Bash(git commit *)" "Bash(git fetch *)" "Bash(git checkout *)" "Bash(git switch *)")
   [ "$HAS_GH_REMOTE" = "1" ] && PERMS+=("Bash(gh pr *)" "Bash(gh issue *)" "Bash(gh run *)")
+  # Toolchain commands from each detected language profile's ## permissions list.
+  for l in "${LANGS[@]:-}"; do
+    [ -n "$l" ] || continue
+    while IFS= read -r p; do PERMS+=("$p"); done < <(awk '/^## /{on=($0=="## permissions"); next} on && /^- `Bash\(/{gsub(/`/, ""); sub(/^- /, ""); print}' "$SCRIPT_DIR/lang/$l.md")
+  done
 
   JS=""
   command -v node >/dev/null 2>&1 && JS="node"
@@ -1251,7 +1461,7 @@ JSEOF
   CLAUDEMD_VERDICT="n/a"
   if [ "$WANT_CLAUDEMD" = "1" ]; then
     if [ -f "$SCRIPT_DIR/templates/CLAUDE.template.md" ]; then
-      cp "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/CLAUDE.md" && ok "CLAUDE.md"
+      cp "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/CLAUDE.md" && lang_fill "$TARGET/CLAUDE.md" && ok "CLAUDE.md"
       LINES=$(grep -cv '^[[:space:]]*$' "$TARGET/CLAUDE.md" 2>/dev/null || printf '0')
       if [ "$LINES" -gt 50 ] 2>/dev/null; then
         say "  ${YELLOW}FAIL${RESET}: CLAUDE.md has $LINES non-blank lines (cap 50) — trim before relying on it."
@@ -1315,17 +1525,15 @@ if [ "$WANT_AG" = "1" ]; then
     for r in "${sel_rules[@]}"; do
       if copy_managed "$SCRIPT_DIR/rules/$r.md" "$AG_ROOT/rules/$r.md" "rule: $r"; then
         AG_INSTALLED_RULES+=("$r")
-        if [ -n "$PRIMARY_SRC_DIR" ] && grep -q '^paths:' "$AG_ROOT/rules/$r.md" 2>/dev/null; then
-          sed -i.bak "/^paths:/,/^---/ s#\"src/#\"$PRIMARY_SRC_DIR/#g" "$AG_ROOT/rules/$r.md"
-          rm -f "$AG_ROOT/rules/$r.md.bak"
-        fi
+        rewrite_paths "$AG_ROOT/rules/$r.md"
+        lang_fill "$AG_ROOT/rules/$r.md"
       fi
     done
   fi
 
   # Agents → skills/<name>/SKILL.md. AG subagents have no static file format, so
   # the agent's instructions ship as a skill (becomes a /<name> slash command).
-  # Frontmatter is reduced to name+description; the body is carried verbatim.
+  # Frontmatter is reduced to name+description; the body is carried over, language-tailored.
   if [ ${#sel_agents[@]} -gt 0 ]; then
     for a in "${sel_agents[@]}"; do
       src="$SCRIPT_DIR/agents/$a.md"
@@ -1339,16 +1547,7 @@ if [ "$WANT_AG" = "1" ]; then
         skip "skill: $a (exists, kept)"
         continue
       fi
-      mkdir -p "$dest_dir"
-      desc="$(awk -F': ' '/^description:/{ $1=""; sub(/^: /,""); print substr($0,2); exit }' "$src")"
-      {
-        printf '%s\n' "---"
-        printf 'name: %s\n' "$a"
-        printf 'description: %s\n' "${desc:-$a}"
-        printf '%s\n' "---"
-        # Body = everything after the closing frontmatter delimiter.
-        awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$src"
-      } >"$dest"
+      ag_skill_write "$src" "$dest" "$a"
       ok "skill (from agent): $a"
       AG_INSTALLED_SKILLS+=("$a")
     done
@@ -1356,7 +1555,7 @@ if [ "$WANT_AG" = "1" ]; then
 
   # Workflow commands → skills/<name>/SKILL.md. Same source as the Claude copy,
   # but frontmatter reduced to name+description (agy is picky about extra keys —
-  # mirrors the agent→skill reduction above); body carried verbatim.
+  # mirrors the agent→skill reduction above); body language-tailored.
   if [ "$WANT_WORKFLOW" = "1" ]; then
     for w in "${WORKFLOW_SKILLS[@]}"; do
       src="$SCRIPT_DIR/skills/$w/SKILL.md"
@@ -1370,21 +1569,13 @@ if [ "$WANT_AG" = "1" ]; then
         skip "workflow: $w (exists, kept)"
         continue
       fi
-      mkdir -p "$dest_dir"
-      desc="$(awk -F': ' '/^description:/{ $1=""; sub(/^: /,""); print substr($0,2); exit }' "$src")"
-      {
-        printf '%s\n' "---"
-        printf 'name: %s\n' "$w"
-        printf 'description: %s\n' "${desc:-$w}"
-        printf '%s\n' "---"
-        awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$src"
-      } >"$dest"
+      ag_skill_write "$src" "$dest" "$w"
       ok "workflow: $w"
     done
   fi
 
   # Bundled skills → skills/<name>/SKILL.md. Same copy shape as workflow above
-  # (frontmatter reduced to name+description, body verbatim); individually
+  # (frontmatter reduced to name+description, body language-tailored); individually
   # selected rather than an all-or-none group.
   if [ ${#sel_bundled[@]} -gt 0 ]; then
     for w in "${sel_bundled[@]}"; do
@@ -1399,15 +1590,7 @@ if [ "$WANT_AG" = "1" ]; then
         skip "skill: $w (exists, kept)"
         continue
       fi
-      mkdir -p "$dest_dir"
-      desc="$(awk -F': ' '/^description:/{ $1=""; sub(/^: /,""); print substr($0,2); exit }' "$src")"
-      {
-        printf '%s\n' "---"
-        printf 'name: %s\n' "$w"
-        printf 'description: %s\n' "${desc:-$w}"
-        printf '%s\n' "---"
-        awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$src"
-      } >"$dest"
+      ag_skill_write "$src" "$dest" "$w"
       ok "skill: $w"
     done
   fi
@@ -1487,7 +1670,7 @@ if [ "$WANT_AG" = "1" ]; then
   if [ "$WANT_CLAUDEMD" = "1" ] && [ -f "$SCRIPT_DIR/templates/CLAUDE.template.md" ]; then
     if [ -e "$TARGET/AGENTS.md" ]; then
       skip "AGENTS.md (exists, kept)"
-    else cp "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/AGENTS.md" && ok "AGENTS.md"; fi
+    else cp "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/AGENTS.md" && lang_fill "$TARGET/AGENTS.md" && ok "AGENTS.md"; fi
   fi
 
   # Drift fingerprint (mirrors Claude Step 5) — session-start.sh reads this
@@ -1499,6 +1682,27 @@ if [ "$WANT_AG" = "1" ]; then
     skip "session-start hook not installed — no drift detection; re-run install.sh manually after stack changes"
   fi
 fi # end WANT_AG
+
+# ========================================================================
+# Step 4b' — Re-tailor (gap mode): refresh language blocks per the approved plan
+# ========================================================================
+for ((i = 0; i < ${#RT_DEST[@]}; i++)); do
+  rt_dest="${RT_DEST[$i]}"
+  rt_src="${RT_SRC[$i]}"
+  [ -f "$rt_dest" ] || continue # removed as an orphan this run
+  if [ "${RT_MODE[$i]}" = refill ]; then
+    [ "$WANT_REFILL" = "1" ] || continue
+    lang_fill "$rt_dest"
+  else
+    [ "$WANT_RECOPY" = "1" ] || continue
+    case "${RT_KIND[$i]}" in
+      ag-skill) ag_skill_write "$rt_src" "$rt_dest" "$(basename "$(dirname "$rt_dest")")" ;;
+      rule) cp "$rt_src" "$rt_dest" && rewrite_paths "$rt_dest" && lang_fill "$rt_dest" ;;
+      *) cp "$rt_src" "$rt_dest" && lang_fill "$rt_dest" ;;
+    esac
+  fi
+  ok "re-tailored (${RT_MODE[$i]}): ${rt_dest#"$TARGET"/}"
+done
 
 # ========================================================================
 # Step 4c — Skills catalog + third-party plugins (host-aware)
@@ -1525,6 +1729,13 @@ PONYTAIL_CTX="# Build discipline
 Apply ponytail (YAGNI) discipline: stop at the first rung of the ladder that holds.
 No speculative abstractions, no boilerplate for later. Activate with \`/ponytail\` or
 load via the ponytail skill."
+
+# Offline runs (scripts/test.sh smoke) skip everything that needs the network.
+if [ "${AGENT_STARTER_NO_EXTERNAL:-0}" = "1" ]; then
+  [ ${#sel_skills[@]} -gt 0 ] || [ ${#sel_plugins[@]} -gt 0 ] && skip "external skills/plugins (AGENT_STARTER_NO_EXTERNAL=1)"
+  sel_skills=()
+  sel_plugins=()
+fi
 
 if [ ${#sel_skills[@]} -gt 0 ]; then
   RUNNER=""
@@ -1561,6 +1772,9 @@ if [ ${#sel_skills[@]} -gt 0 ]; then
         case "$skn" in
           caveman) append_contextmd both "$CAVEMAN_CTX" ;;
           ponytail) append_contextmd both "$PONYTAIL_CTX" ;;
+          # The skill is instructions only; the browser checks also need the CLI + its Chromium.
+          agent-browser) command -v agent-browser >/dev/null 2>&1 ||
+            say "    ${DIM}agent-browser CLI not found — browser checks stay skipped until: npm i -g agent-browser && agent-browser install${RESET}" ;;
         esac
       else
         skip "skill failed: $skn (private repos need 'gh auth' — continuing)"

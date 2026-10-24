@@ -35,15 +35,19 @@ these are **copied verbatim into the project** — but as an all-or-none group �
 `.agents/skills/<name>/SKILL.md` (frontmatter reduced to name+description) for Antigravity — so
 they travel with the repo and teammates share them. Each `SKILL.md` is host-neutral: it reads
 `CLAUDE.md` **or** `AGENTS.md`, whichever the host uses. Offered as one opt-in group (all five or
-none), on by default in the standard/full tiers.
+none), on by default in the standard/full tiers. `qplan`/`qcode`/`qcheck`/`qgit` delegate to
+cheaper subagents (`sonnet`, `haiku` aliases) only when the token estimate beats the planning model
+doing the work; on hosts without per-call model selection they run inline. When the
+`agent-browser` skill (row 13) and its CLI are installed, `qplan` plans live browser flows for
+UI-affecting changes, and `qcode`/`qcheck` run them on a `haiku` subagent.
 
 | #   | Skill    | Description                                                                                   | Recommend when |
 | --- | -------- | --------------------------------------------------------------------------------------------- | -------------- |
 | W1  | `qnew`   | Load the project instructions and commit to their best practices before any work              | Always         |
-| W2  | `qplan`  | Turn a task into a plan that follows the project's rules, patterns, and existing code         | Always         |
-| W3  | `qcode`  | Implement the `/qplan` plan to production-ready, running the project's own quality gate       | Always         |
-| W4  | `qcheck` | Senior-engineer review of a scope (diff/branch/path) with a fix plan handed to `/qcode`       | Always         |
-| W5  | `qgit`   | Quality-gate, then Conventional Commits commit + confirmed push (no AI-assistant attribution) | Always         |
+| W2  | `qplan`  | Plan a task on `opus` per the project's rules and code; picks inline vs. delegated execution  | Always         |
+| W3  | `qcode`  | Execute the plan inline or via `sonnet`/`haiku` subagents, running the project's quality gate | Always         |
+| W4  | `qcheck` | Senior-engineer review of a scope (diff/branch/path), optional `sonnet` reviewers, fix plan   | Always         |
+| W5  | `qgit`   | Quality-gate (`haiku` when noisy), then Conventional Commits commit + confirmed push          | Always         |
 
 ## External Skills
 
@@ -64,42 +68,42 @@ bunx skills add https://github.com/anthropics/skills --skill frontend-design -a 
 bunx skills add https://github.com/anthropics/skills --skill frontend-design -a antigravity-cli -y
 ```
 
-| #   | Skill                       | Repo URL                                                  | `--skill`                     | Recommend when                                                  |
-| --- | --------------------------- | --------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
-| 1   | frontend-design             | `https://github.com/anthropics/skills`                    | `frontend-design`             | Frontend detected (`.tsx`/`.jsx`, `components/` dir)            |
-| 2   | webapp-testing              | `https://github.com/anthropics/skills`                    | `webapp-testing`              | Always                                                          |
-| 3   | next-pro-seo                | `https://github.com/madushan-sooriyarathne/skills`        | `next-pro-seo`                | `next.config.*` detected                                        |
-| 4   | brand-guidelines            | `https://github.com/anthropics/skills`                    | `brand-guidelines`            | Hospitality / real-estate / marketing signals                   |
-| 5   | mcp-builder                 | `https://github.com/anthropics/skills`                    | `mcp-builder`                 | Opt-in (off by default)                                         |
-| 6   | skill-creator               | `https://github.com/anthropics/skills`                    | `skill-creator`               | Opt-in (off by default)                                         |
-| 7   | vercel-react-best-practices | `https://github.com/vercel-labs/agent-skills`             | `vercel-react-best-practices` | `react` dep detected                                            |
-| 8   | vercel-composition-patterns | `https://github.com/vercel-labs/agent-skills`             | `vercel-composition-patterns` | `react` dep detected                                            |
-| 9   | shadcn                      | `https://github.com/shadcn/ui`                            | `shadcn`                      | `react` dep + `components/` dir detected                        |
-| 10  | systematic-debugging        | `https://github.com/obra/superpowers`                     | `systematic-debugging`        | Always                                                          |
-| 11  | next-best-practices         | `https://github.com/vercel-labs/next-skills`              | `next-best-practices`         | `next.config.*` detected                                        |
-| 12  | emil-design-eng             | `https://github.com/emilkowalski/skills`                  | `emil-design-eng`             | Next.js + `framer-motion` or `motion` dep detected              |
-| 13  | agent-browser               | `https://github.com/vercel-labs/agent-browser`            | `agent-browser`               | `playwright.config.*` or `cypress` detected                     |
-| 14  | web-design-guidelines       | `https://github.com/vercel-labs/agent-skills`             | `web-design-guidelines`       | Any frontend detected                                           |
-| 15  | tdd                         | `https://github.com/mattpocock/skills`                    | `tdd`                         | Test config detected (`jest.config.*`, `vitest.config.*`, etc.) |
-| 16  | to-prd                      | `https://github.com/mattpocock/skills`                    | `to-prd`                      | Opt-in (off by default)                                         |
-| 17  | ui-ux-pro-max               | `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill` | `ui-ux-pro-max`               | Frontend detected                                               |
-| 18  | caveman                     | `https://github.com/JuliusBrussee/caveman`                | `caveman`                     | Always (default on) — appends comm-style nudge ¹                |
-| 19  | ponytail                    | `https://github.com/DietrichGebert/ponytail`              | `ponytail`                    | Always (default on) — appends build-discipline nudge ¹          |
-| 20  | ponytail-review             | `https://github.com/DietrichGebert/ponytail`              | `ponytail-review`             | Opt-in (over-engineering review)                                |
-| 21  | ponytail-audit              | `https://github.com/DietrichGebert/ponytail`              | `ponytail-audit`              | Opt-in (whole-repo over-engineering audit)                      |
-| 22  | ponytail-debt               | `https://github.com/DietrichGebert/ponytail`              | `ponytail-debt`               | Opt-in (harvest `ponytail:` debt comments)                      |
-| 23  | design-taste-frontend       | `https://github.com/Leonxlnx/taste-skill`                 | `design-taste-frontend`       | Frontend detected (anti-slop landing/portfolio design)          |
-| 24  | redesign-existing-projects  | `https://github.com/Leonxlnx/taste-skill`                 | `redesign-existing-projects`  | Frontend detected (upgrading existing UI)                       |
-| 25  | high-end-visual-design      | `https://github.com/Leonxlnx/taste-skill`                 | `high-end-visual-design`      | Frontend detected (agency-grade visual polish)                  |
-| 26  | minimalist-ui               | `https://github.com/Leonxlnx/taste-skill`                 | `minimalist-ui`               | Frontend detected (clean editorial minimalism)                  |
-| 27  | industrial-brutalist-ui     | `https://github.com/Leonxlnx/taste-skill`                 | `industrial-brutalist-ui`     | Frontend / data-dashboard detected (brutalist telemetry)        |
-| 28  | nextjs-perf-audit           | `https://github.com/madushan-sooriyarathne/skills`        | `nextjs-perf-audit`           | `next.config.*` detected                                        |
-| 29  | main-thread-performance     | `https://github.com/madushan-sooriyarathne/skills`        | `main-thread-performance`     | Frontend detected (animation / interaction perf)                |
-| 30  | shader-from-reference       | `https://github.com/madushan-sooriyarathne/skills`        | `shader-from-reference`       | Opt-in (WebGL / shader visuals)                                 |
-| 31  | rust-best-practices         | `https://github.com/apollographql/skills`                 | `rust-best-practices`         | `Cargo.toml` detected (Rust only)                               |
-| 32  | rust-async-patterns         | `https://github.com/wshobson/agents`                      | `rust-async-patterns`         | `Cargo.toml` detected (Rust only)                               |
-| 33  | rust-testing                | `https://github.com/affaan-m/ecc`                         | `rust-testing`                | `Cargo.toml` detected (Rust only)                               |
-| 34  | rust-patterns               | `https://github.com/affaan-m/ecc`                         | `rust-patterns`               | `Cargo.toml` detected (Rust only)                               |
+| #   | Skill                       | Repo URL                                                  | `--skill`                     | Recommend when                                                                   |
+| --- | --------------------------- | --------------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------- |
+| 1   | frontend-design             | `https://github.com/anthropics/skills`                    | `frontend-design`             | Frontend detected (`.tsx`/`.jsx`, `components/` dir)                             |
+| 2   | webapp-testing              | `https://github.com/anthropics/skills`                    | `webapp-testing`              | Always                                                                           |
+| 3   | next-pro-seo                | `https://github.com/madushan-sooriyarathne/skills`        | `next-pro-seo`                | `next.config.*` detected                                                         |
+| 4   | brand-guidelines            | `https://github.com/anthropics/skills`                    | `brand-guidelines`            | Hospitality / real-estate / marketing signals                                    |
+| 5   | mcp-builder                 | `https://github.com/anthropics/skills`                    | `mcp-builder`                 | Opt-in (off by default)                                                          |
+| 6   | skill-creator               | `https://github.com/anthropics/skills`                    | `skill-creator`               | Opt-in (off by default)                                                          |
+| 7   | vercel-react-best-practices | `https://github.com/vercel-labs/agent-skills`             | `vercel-react-best-practices` | `react` dep detected                                                             |
+| 8   | vercel-composition-patterns | `https://github.com/vercel-labs/agent-skills`             | `vercel-composition-patterns` | `react` dep detected                                                             |
+| 9   | shadcn                      | `https://github.com/shadcn/ui`                            | `shadcn`                      | `react` dep + `components/` dir detected                                         |
+| 10  | systematic-debugging        | `https://github.com/obra/superpowers`                     | `systematic-debugging`        | Always                                                                           |
+| 11  | next-best-practices         | `https://github.com/vercel-labs/next-skills`              | `next-best-practices`         | `next.config.*` detected                                                         |
+| 12  | emil-design-eng             | `https://github.com/emilkowalski/skills`                  | `emil-design-eng`             | Next.js + `framer-motion` or `motion` dep detected                               |
+| 13  | agent-browser               | `https://github.com/vercel-labs/agent-browser`            | `agent-browser`               | Frontend detected (needs CLI: `npm i -g agent-browser && agent-browser install`) |
+| 14  | web-design-guidelines       | `https://github.com/vercel-labs/agent-skills`             | `web-design-guidelines`       | Any frontend detected                                                            |
+| 15  | tdd                         | `https://github.com/mattpocock/skills`                    | `tdd`                         | Test config detected (`jest.config.*`, `vitest.config.*`, etc.)                  |
+| 16  | to-prd                      | `https://github.com/mattpocock/skills`                    | `to-prd`                      | Opt-in (off by default)                                                          |
+| 17  | ui-ux-pro-max               | `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill` | `ui-ux-pro-max`               | Frontend detected                                                                |
+| 18  | caveman                     | `https://github.com/JuliusBrussee/caveman`                | `caveman`                     | Always (default on) — appends comm-style nudge ¹                                 |
+| 19  | ponytail                    | `https://github.com/DietrichGebert/ponytail`              | `ponytail`                    | Always (default on) — appends build-discipline nudge ¹                           |
+| 20  | ponytail-review             | `https://github.com/DietrichGebert/ponytail`              | `ponytail-review`             | Opt-in (over-engineering review)                                                 |
+| 21  | ponytail-audit              | `https://github.com/DietrichGebert/ponytail`              | `ponytail-audit`              | Opt-in (whole-repo over-engineering audit)                                       |
+| 22  | ponytail-debt               | `https://github.com/DietrichGebert/ponytail`              | `ponytail-debt`               | Opt-in (harvest `ponytail:` debt comments)                                       |
+| 23  | design-taste-frontend       | `https://github.com/Leonxlnx/taste-skill`                 | `design-taste-frontend`       | Frontend detected (anti-slop landing/portfolio design)                           |
+| 24  | redesign-existing-projects  | `https://github.com/Leonxlnx/taste-skill`                 | `redesign-existing-projects`  | Frontend detected (upgrading existing UI)                                        |
+| 25  | high-end-visual-design      | `https://github.com/Leonxlnx/taste-skill`                 | `high-end-visual-design`      | Frontend detected (agency-grade visual polish)                                   |
+| 26  | minimalist-ui               | `https://github.com/Leonxlnx/taste-skill`                 | `minimalist-ui`               | Frontend detected (clean editorial minimalism)                                   |
+| 27  | industrial-brutalist-ui     | `https://github.com/Leonxlnx/taste-skill`                 | `industrial-brutalist-ui`     | Frontend / data-dashboard detected (brutalist telemetry)                         |
+| 28  | nextjs-perf-audit           | `https://github.com/madushan-sooriyarathne/skills`        | `nextjs-perf-audit`           | `next.config.*` detected                                                         |
+| 29  | main-thread-performance     | `https://github.com/madushan-sooriyarathne/skills`        | `main-thread-performance`     | Frontend detected (animation / interaction perf)                                 |
+| 30  | shader-from-reference       | `https://github.com/madushan-sooriyarathne/skills`        | `shader-from-reference`       | Opt-in (WebGL / shader visuals)                                                  |
+| 31  | rust-best-practices         | `https://github.com/apollographql/skills`                 | `rust-best-practices`         | `Cargo.toml` detected (Rust only)                                                |
+| 32  | rust-async-patterns         | `https://github.com/wshobson/agents`                      | `rust-async-patterns`         | `Cargo.toml` detected (Rust only)                                                |
+| 33  | rust-testing                | `https://github.com/affaan-m/ecc`                         | `rust-testing`                | `Cargo.toml` detected (Rust only)                                                |
+| 34  | rust-patterns               | `https://github.com/affaan-m/ecc`                         | `rust-patterns`               | `Cargo.toml` detected (Rust only)                                                |
 
 ¹ **caveman + ponytail (base skills only)** carry a mode: after a successful install
 they append a short nudge block to the host doc (`CLAUDE.md` and/or `AGENTS.md`) so the

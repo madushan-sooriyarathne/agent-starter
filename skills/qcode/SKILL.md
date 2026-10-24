@@ -10,6 +10,7 @@ allowed-tools:
   - Grep
   - Glob
   - Bash
+  - Agent
 ---
 
 # QCode
@@ -47,7 +48,11 @@ Before editing any file:
 
 ## Execution & Validation Loop
 
-For each planned step:
+If the plan's `Browser Verification` asks for a baseline, capture it per
+[Browser Check](#browser-check) before the first edit.
+
+If the plan's `Execution Strategy` says `delegated`, follow [Delegated Execution](#delegated-execution).
+Otherwise, for each planned step:
 
 1. **Inspect** the target code.
 2. **Implement** the planned change.
@@ -56,6 +61,50 @@ For each planned step:
 
 After the last step, run the project's full quality gate, skipping any step it lacks: type-check,
 lint, test, build. If the instructions name a single gate (e.g. one `test`/`check` script), run that.
+
+<!-- lang:commands -->
+
+When the gate passes, run the plan's browser flows per [Browser Check](#browser-check).
+
+## Browser Check
+
+Run this in both inline and delegated mode when the plan's `Browser Verification` lists flows.
+Re-check that the `agent-browser` CLI is on `PATH`; if it is missing, report the check as skipped
+with that reason. Never report a skipped check as passed.
+
+1. **Dispatch** one `haiku` subagent when the host takes a model per call; otherwise run the
+   steps inline. Brief it with the URL, start command, flows, checks, and auth env var names.
+2. **The subagent** loads the `agent-browser` skill and uses its commands. It starts the dev
+   server in the background only if the URL does not respond, runs each flow, and stops only a
+   server it started. It saves a screenshot only for a failed flow and returns the path, not the
+   image. It never edits files.
+3. **Receipt.** For each flow: pass or fail; for a failure, the failing step plus the raw output
+   that shows it. Also console errors, failed requests, and any performance numbers measured.
+4. **Handle failures.** Retry a failed flow once to rule out timing flakiness. Fix a real failure
+   yourself (or return it to its unit's tier), then re-run only the failing flows. If the server
+   does not start, report a blocker; do not claim done.
+
+## Delegated Execution
+
+Use this only when the plan's mode is `delegated` and the host has a subagent tool that takes a
+model per call (Claude Code's `Agent` tool). Otherwise, for example on Antigravity, execute inline
+as above. You are the orchestrator: you dispatch units, check them, and own the final result.
+
+1. **Dispatch.** Start one subagent per unit, with the unit's `model` alias from the plan. Run
+   independent units in parallel, in one message. Start a unit only after its dependencies finish.
+2. **Brief each unit cold.** Give it only its own steps, its owned files, the plan's
+   `Required Rules & Skills`, and its validation command. Tell it: edit only the owned files; add
+   no dependency; do not commit; stop and report if the plan does not fit the code. Ask for a
+   short receipt: files changed, validation command and result, deviations.
+3. **Check each receipt.** Compare `git diff --stat` with the unit's owned files. An edit outside
+   them is a deviation: reconcile it before you continue. Spot-read the risky hunks; do not
+   re-read the whole diff.
+4. **Run the gate.** If the plan's `Verification` names `haiku`, dispatch the full quality gate
+   to a `haiku` subagent. It reports pass or fail, plus only the failing lines. It never edits
+   files.
+5. **Handle failures.** Fix small regressions yourself. Return a larger one to its unit's tier
+   with the failing output. Re-run the gate after each fix.
+6. **Run the browser check** per [Browser Check](#browser-check) once the gate passes.
 
 ## Deviations
 
@@ -86,6 +135,12 @@ Validation:
 
 Deviations:
   <none, or brief explanation>
+
+Delegation:
+  <inline, or each unit: model → files → validation result>
+
+Browser:
+  <none | skipped (reason) | each flow → passed/failed, perf vs baseline>
 
 Notes:
   <operational follow-ups, or none>

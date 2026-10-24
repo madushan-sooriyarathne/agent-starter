@@ -36,7 +36,10 @@ Work a GitHub issue end to end. `$ARGUMENTS` is the issue number or URL; if omit
 ## Step 4: Verify against the issue
 
 - Re-run the reproduction from Step 1 — confirm the reported behavior is gone.
-- Run the tests for the touched area, then lint/typecheck.
+- Run the tests for the touched area, then lint/type-check:
+
+<!-- lang:commands -->
+
 - Walk the acceptance criteria one by one; quote each with its status.
 
 ## Step 5: Ship it

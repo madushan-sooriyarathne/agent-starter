@@ -35,12 +35,15 @@ Ship the current changes through commit, push, and PR creation. Confirm with the
 ## Step 2: Stage & Commit
 
 - Propose which files to stage. **Never stage** these:
+
   - Secrets: `.env*`, `*.pem`, `*.key`, `credentials.json`
-  - Lock files: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml` (unless intentionally updated)
-  - Generated: `*.gen.ts`, `*.generated.*`, `*.min.js`, `*.min.css`
-  - Build output: `dist/`, `build/`, `.next/`, `__pycache__/`
-  - Dependencies: `node_modules/`, `vendor/`, `.venv/`
+  - Lock files (unless dependencies were intentionally updated)
+  - Generated files and build output
+  - Installed dependencies (`vendor/`, `.venv/`, `node_modules/`)
   - OS/editor: `.DS_Store`, `Thumbs.db`, `*.swp`, `.idea/`, `.vscode/settings.json`
+
+  <!-- lang:ship-excludes -->
+
 - Draft a commit message based on the changes, matching the repo's existing commit style
 - **ASK the user to confirm or edit**: show the exact files to stage and the proposed commit message
 - Only after confirmation: stage the files and create the commit

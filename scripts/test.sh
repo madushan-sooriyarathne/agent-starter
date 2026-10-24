@@ -27,6 +27,8 @@ AG_SUPPORTED_HOOKS="block-dangerous-commands scan-secrets protect-files warn-lar
 SKILL_CATALOG_EXCLUDE=" setup-agents setup-agy setup-claude "
 
 CATALOG="skills/setup-agents/references"
+# Sections every lang/<id>.md profile must carry (see lang/README.md).
+LANG_SECTIONS="commands permissions testing errors review security perf ship-excludes naming"
 
 PASS=0
 FAIL=0
@@ -176,6 +178,38 @@ else
   faild "agy skill copies stale — run scripts/materialize-agy-skills.sh"
 fi
 
+# --- 7b. language profiles + markers ---------------------------------------
+group "language profiles"
+bad=0
+for f in lang/*.md; do
+  [ "$(basename "$f")" = README.md ] && continue
+  head -1 "$f" | grep -q '^# ' || {
+    faild "$f: first line must be the '# <Display name>' label"
+    bad=1
+  }
+  for sec in $LANG_SECTIONS; do
+    grep -qx "## $sec" "$f" || {
+      faild "$f: missing '## $sec'"
+      bad=1
+    }
+  done
+done
+while IFS= read -r m; do
+  sec="${m#*<!-- lang:}"
+  sec="${sec%% -->*}"
+  case " $LANG_SECTIONS " in
+    *" $sec "*) [ "$sec" = permissions ] && {
+      faild "marker lang:permissions is not fillable: ${m%%:*}"
+      bad=1
+    } ;;
+    *)
+      faild "unknown marker section '$sec': ${m%%:*}"
+      bad=1
+      ;;
+  esac
+done < <(grep -o '<!-- lang:[^>]*-->' -H agents/*.md rules/*.md skills/*/SKILL.md templates/CLAUDE.template.md 2>/dev/null)
+[ "$bad" = 0 ] && pass "profiles carry every section; every marker names one"
+
 # --- 8. hook fixture suite -------------------------------------------------
 group "hook fixture suite"
 out=$(hooks/tests/run-all.sh 2>&1)
@@ -211,6 +245,51 @@ else
   faild "install.sh exited nonzero"
   tail -20 "$smoke/.log" | sed 's/^/    /'
 fi
+
+# --- 9b. install.sh smoke — language tailoring (Rust, TS, Go) ---------------
+# AGENT_STARTER_NO_EXTERNAL=1 skips bunx/graphify so the run is offline.
+group "install.sh tailoring smoke"
+tailor_smoke() { # tailor_smoke <label> <dir> <want-in-qgit> <forbidden-regex> <want-perm>
+  local label="$1" d="$2" want="$3" deny="$4" perm="$5" ok=1
+  if ! (cd "$d" && AGENT_STARTER_NO_EXTERNAL=1 bash "$ROOT/install.sh" </dev/null) >"$d.log" 2>&1; then
+    faild "$label: install.sh exited nonzero"
+    tail -20 "$d.log" | sed 's/^/    /'
+    return
+  fi
+  grep -qF -- "$want" "$d/.claude/skills/qgit/SKILL.md" 2>/dev/null || {
+    faild "$label: qgit not tailored (no '$want')"
+    ok=0
+  }
+  if grep -rlE '<!-- lang:[a-z-]+ -->' "$d/.claude" "$d/CLAUDE.md" >/dev/null 2>&1; then
+    faild "$label: unfilled <!-- lang --> marker left in install output"
+    ok=0
+  fi
+  if grep -rlE -- "$deny" "$d/.claude/skills" "$d/.claude/agents" "$d/.claude/rules" "$d/CLAUDE.md" >/dev/null 2>&1; then
+    faild "$label: other-language content leaked: $(grep -rlE -- "$deny" "$d/.claude/skills" "$d/.claude/agents" "$d/.claude/rules" "$d/CLAUDE.md" | head -3 | tr '\n' ' ')"
+    ok=0
+  fi
+  jq -e --arg p "$perm" '.permissions.allow | index($p)' "$d/.claude/settings.json" >/dev/null 2>&1 || {
+    faild "$label: settings.json missing permission $perm"
+    ok=0
+  }
+  [ "$ok" = 1 ] && pass "$label: skills/rules/agents/CLAUDE.md tailored, no leaks, permissions set"
+}
+rs="$smoke/rust"
+mkdir -p "$rs/src"
+printf '[package]\nname = "smoke"\nversion = "0.1.0"\n' >"$rs/Cargo.toml"
+printf 'fn main() {}\n\n#[test]\nfn ok() {}\n' >"$rs/src/main.rs"
+tailor_smoke "rust" "$rs" "cargo clippy" 'npm run|tsconfig|\.tsx|go vet' "Bash(cargo test *)"
+tsd="$smoke/ts"
+mkdir -p "$tsd/src"
+printf '{"name":"smoke","scripts":{"test":"vitest"},"devDependencies":{"typescript":"5"}}\n' >"$tsd/package.json"
+printf '{}\n' >"$tsd/tsconfig.json"
+printf 'export const a = 1;\n' >"$tsd/src/a.ts"
+tailor_smoke "typescript" "$tsd" "npm run typecheck" 'cargo |go vet|gofmt' "Bash(npm run test *)"
+god="$smoke/go"
+mkdir -p "$god"
+printf 'module smoke\n\ngo 1.22\n' >"$god/go.mod"
+printf 'package main\n\nfunc main() {}\n' >"$god/main.go"
+tailor_smoke "go" "$god" "go vet ./..." 'npm run|cargo |tsconfig|\.tsx' "Bash(go test *)"
 
 # --- 10. manifest validation (optional CLIs) --------------------------------
 group "manifest validation"

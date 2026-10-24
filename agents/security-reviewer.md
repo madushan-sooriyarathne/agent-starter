@@ -55,7 +55,7 @@ Run `git diff --name-only`, read each changed file, grep the codebase for relate
 - `npm install` / `pip install` without pinned versions in CI.
 - Postinstall scripts executing arbitrary code.
 - CDN imports without integrity hashes (SRI).
-- Run `npm audit` or `pip audit` if available.
+- Run the ecosystem's audit tool if available (`npm audit`, `pip audit`, `cargo audit`, `govulncheck`).
 
 ## Cryptography
 
@@ -72,6 +72,10 @@ Run `git diff --name-only`, read each changed file, grep the codebase for relate
 - `parseInt(userInput)` without checking NaN.
 - Missing length limits on strings (DoS via large payloads).
 - Missing Content-Type validation on file uploads.
+
+## Language specifics
+
+<!-- lang:security -->
 
 ## What NOT to flag
 
