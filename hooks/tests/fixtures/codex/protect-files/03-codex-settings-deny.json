@@ -1,0 +1,15 @@
+{
+  "name": "Codex configuration cannot be patched by an agent",
+  "stdin": {
+    "hook_event_name": "PreToolUse",
+    "tool_name": "apply_patch",
+    "tool_input": {
+      "command": "*** Begin Patch\n*** Delete File: .codex/hooks.json\n*** End Patch"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"permissionDecision\":\"deny\"",
+    "Protected Codex configuration"
+  ]
+}

@@ -24,7 +24,7 @@ command -v jq >/dev/null 2>&1 || {
 # All 10 hooks have a native Antigravity twin (mirror of install.sh's list).
 AG_SUPPORTED_HOOKS="block-dangerous-commands scan-secrets protect-files warn-large-files typecheck-on-stop lint-on-stop format-on-save auto-test notify session-start"
 # Skills that are installer machinery, not user-facing catalog entries.
-SKILL_CATALOG_EXCLUDE=" setup-agents setup-agy setup-claude "
+SKILL_CATALOG_EXCLUDE=" setup-agents setup-agy setup-claude setup-codex "
 
 CATALOG="skills/setup-agents/references"
 # Sections every lang/<id>.md profile must carry (see lang/README.md).
@@ -84,16 +84,28 @@ fi
 group "version parity"
 v1=$(jq -r '.version // ""' plugins/setup-agents/.claude-plugin/plugin.json)
 v2=$(jq -r '.version // ""' plugins/setup-agents/plugin.json)
-if [ -n "$v1" ] && [ "$v1" = "$v2" ]; then
+v3=$(jq -r '.version // ""' plugins/setup-agents/.codex-plugin/plugin.json)
+if [ -n "$v1" ] && [ "$v1" = "$v2" ] && [ "$v1" = "$v3" ]; then
   pass "plugin.json versions match ($v1)"
 else
-  faild "plugin.json version mismatch: '$v1' vs '$v2'"
+  faild "plugin.json version mismatch: Claude=$v1 Antigravity=$v2 Codex=$v3"
 fi
 mv=$(jq -r '.plugins[0].version // "none"' .claude-plugin/marketplace.json)
 if [ "$mv" = none ]; then
   pass "marketplace carries no version (plugin.json wins)"
 else
   faild "marketplace must not set a version (found '$mv') — see CLAUDE.md"
+fi
+
+if jq -e '.name == "agent-starter" and
+  (.plugins | length == 1 and .[0].name == "setup-agents" and
+    .[0].source == {source:"local", path:"./plugins/setup-agents"} and
+    .[0].policy == {installation:"AVAILABLE", authentication:"ON_INSTALL"} and
+    (.[0] | has("version") | not))' .agents/plugins/marketplace.json >/dev/null &&
+  jq -e '.name == "setup-agents" and .skills == "./skills/"' plugins/setup-agents/.codex-plugin/plugin.json >/dev/null; then
+  pass "Codex marketplace points to the setup-agents bundle"
+else
+  faild "invalid Codex marketplace entry or manifest"
 fi
 
 # --- 4. frontmatter (agents + skills need name + description) ---------------
@@ -138,7 +150,14 @@ for f in hooks/claude/*.sh; do
     bad=1
   }
 done
-[ "$bad" = 0 ] && pass "every hook has its twin + fixtures"
+while IFS= read -r name; do
+  if [ ! -x "hooks/claude/$name.sh" ] || [ ! -x hooks/codex/run.sh ] ||
+    [ -z "$(find "hooks/tests/fixtures/codex/$name" -name '*.json' -print 2>/dev/null)" ]; then
+    faild "missing Codex hook policy or fixtures for $name"
+    bad=1
+  fi
+done < <(jq -r 'keys[]' templates/codex-hooks.json)
+[ "$bad" = 0 ] && pass "every hook has its required port and fixtures"
 
 # --- 6. catalog drift ------------------------------------------------------
 group "catalog drift"
@@ -170,12 +189,12 @@ for d in skills/*/; do
 done
 [ "$bad" = 0 ] && pass "all components listed in their catalogs"
 
-# --- 7. agy skill copy freshness -------------------------------------------
-group "agy skill copies"
+# --- 7. plugin bundle freshness -------------------------------------------
+group "plugin bundle"
 if scripts/materialize-agy-skills.sh --check >/dev/null 2>&1; then
-  pass "plugins/*/skills copies are real files and match source"
+  pass "bundled skills and templates are self-contained and match source"
 else
-  faild "agy skill copies stale — run scripts/materialize-agy-skills.sh"
+  faild "plugin bundle stale — run scripts/materialize-agy-skills.sh"
 fi
 
 # --- 7b. language profiles + markers ---------------------------------------
@@ -207,7 +226,7 @@ while IFS= read -r m; do
       bad=1
       ;;
   esac
-done < <(grep -o '<!-- lang:[^>]*-->' -H agents/*.md rules/*.md skills/*/SKILL.md templates/CLAUDE.template.md 2>/dev/null)
+done < <(grep -o '<!-- lang:[^>]*-->' -H agents/*.md rules/*.md skills/*/SKILL.md templates/*.template.md 2>/dev/null)
 [ "$bad" = 0 ] && pass "profiles carry every section; every marker names one"
 
 # --- 8. hook fixture suite -------------------------------------------------
@@ -291,6 +310,14 @@ printf 'module smoke\n\ngo 1.22\n' >"$god/go.mod"
 printf 'package main\n\nfunc main() {}\n' >"$god/main.go"
 tailor_smoke "go" "$god" "go vet ./..." 'npm run|cargo |tsconfig|\.tsx' "Bash(go test *)"
 
+group "Codex scaffold smoke"
+if result=$(bash scripts/test-codex.sh scaffold 2>&1); then
+  pass "Codex-only and all-host setup preserve existing config and tailor native agents"
+else
+  faild "Codex scaffold smoke failed"
+  printf '%s\n' "$result" | tail -25 | sed 's/^/    /'
+fi
+
 # --- 10. manifest validation (optional CLIs) --------------------------------
 group "manifest validation"
 if command -v claude >/dev/null 2>&1; then
@@ -312,6 +339,17 @@ if command -v agy >/dev/null 2>&1; then
   fi
 else
   skp "agy not installed — agy validate skipped"
+fi
+
+if command -v codex >/dev/null 2>&1 && codex plugin add --help >/dev/null 2>&1; then
+  if result=$(bash scripts/test-codex.sh marketplace 2>&1); then
+    pass "Codex marketplace installs a self-contained plugin and its cached writer scaffolds a project"
+  else
+    faild "Codex marketplace install failed"
+    printf '%s\n' "$result" | tail -25 | sed 's/^/    /'
+  fi
+else
+  skp "Codex CLI plugin install unavailable"
 fi
 
 # --- summary ---------------------------------------------------------------

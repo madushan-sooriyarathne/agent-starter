@@ -5,12 +5,12 @@
     "name": "Madushan Sooriyarathne",
     "email": "hello@madushan.dev"
   },
-  "description": "A tool to scaffold .claude config for new projecs",
+  "description": "Scaffold project configuration for Claude Code, Antigravity, and Codex.",
   "plugins": [
     {
       "name": "setup-agents",
       "source": "./plugins/setup-agents",
-      "description": "Set up agent-starter for Claude Code (.claude/) or Antigravity (.agents/). Deep-scans the codebase, interviews you, then installs and customizes only the components the project actually needs.",
+      "description": "Scan a project and scaffold tailored configuration for Claude Code, Antigravity, or Codex.",
       "author": {
         "name": "Madushan Sooriyarathne",
         "email": "hello@madushan.dev"

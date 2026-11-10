@@ -1,6 +1,6 @@
 # Agents Catalog
 
-Eight review agents, copied from `${CLAUDE_PLUGIN_ROOT}/agents/` (slash command) or
+Eight review agents, copied from `${BUNDLE}/template/agents/` (slash command) or
 `$SCRIPT_DIR/agents/` (install.sh) into the target project's `.claude/agents/`.
 
 Pre-mark an agent as recommended when its **Recommend when** condition is met by the project scan.

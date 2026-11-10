@@ -1,0 +1,14 @@
+{
+  "name": "setup-agents",
+  "version": "2.18.0",
+  "description": "Scaffold a project for Claude Code, Antigravity, or Codex. Scan the stack, review a plan, and install the agents, instructions, skills, and hooks the project needs.",
+  "author": {
+    "name": "Madushan Sooriyarathne",
+    "email": "hello@madushan.dev"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/madushan-sooriyarathne/agent-starter",
+  "repository": "https://github.com/madushan-sooriyarathne/agent-starter",
+  "keywords": ["setup", "bootstrap", "configuration"],
+  "skills": "./skills/"
+}

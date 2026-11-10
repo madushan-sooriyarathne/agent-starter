@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Hook test runner. Iterates every fixture under
 # hooks/tests/fixtures/<host>/<hook>/ and invokes hooks/<host>/<hook>.sh with
-# the fixture's stdin, comparing exit code and stdout/stderr substrings
+# the fixture's stdin (Codex uses its shared dispatcher), comparing stdout/stderr and exit code
 # against the fixture's expectations. <host> is "claude" or "antigravity".
 #
 # Fixture format (JSON):
@@ -35,6 +35,11 @@ run_case() {
   local hook_name="$2"
   local fixture="$3"
   local hook_path="$ROOT/$host/${hook_name}.sh"
+  local hook_args=()
+  if [[ "$host" = codex ]]; then
+    hook_path="$ROOT/codex/run.sh"
+    hook_args+=("$hook_name")
+  fi
   [[ -x "$hook_path" ]] || chmod +x "$hook_path" 2>/dev/null || true
 
   local name stdin expect_exit
@@ -50,9 +55,9 @@ run_case() {
   env_exports=$(jq -r '(.env // {}) | to_entries | map("\(.key)=\(.value|tostring)") | .[]' "$fixture")
 
   if [[ -n "$env_exports" ]]; then
-    printf '%s' "$stdin" | env $env_exports bash "$hook_path" >"$out_file" 2>"$err_file"
+    printf '%s' "$stdin" | env $env_exports bash "$hook_path" "${hook_args[@]:-}" >"$out_file" 2>"$err_file"
   else
-    printf '%s' "$stdin" | bash "$hook_path" >"$out_file" 2>"$err_file"
+    printf '%s' "$stdin" | bash "$hook_path" "${hook_args[@]:-}" >"$out_file" 2>"$err_file"
   fi
   actual_exit=$?
 

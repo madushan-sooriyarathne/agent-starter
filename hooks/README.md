@@ -149,6 +149,25 @@ All 10 Claude hooks have an Antigravity counterpart. Installed into `.agents/hoo
 
 **Open risk**: if multiple independent Stop hooks (e.g. `typecheck-on-stop.sh` and `lint-on-stop.sh`) each request `"continue"` in the same cycle, Antigravity's docs don't say how the results combine. Not resolvable without testing against a real Antigravity instance.
 
+## Codex project hooks
+
+`templates/codex-hooks.json` maps each check to a Codex event and matcher.
+The installer registers selected checks in `.codex/hooks.json` and copies the
+dispatcher and policies into `.codex/hooks/agent-starter/`. It preserves
+unrelated registrations.
+
+- `PreToolUse` inspects Bash commands and `apply_patch` edits. For patches,
+  file checks inspect additions, edits, deletions, and move destinations. Secret
+  scanning inspects added lines and denies a match.
+- `PostToolUse` runs edit checks for surviving files from `apply_patch`.
+  Lint and typecheck mark relevant edits and use `Stop` to request one
+  continuation on failure.
+- `SessionStart` supplies Git context and reads the Codex manifest fingerprint.
+  The optional notification hook runs on `Stop`.
+
+Use `/hooks` to review and trust these project hooks. Coverage is limited to
+the configured tool events. [Codex hook contracts](https://learn.chatgpt.com/docs/hooks)
+
 ## Adding your own
 
 1. Create a `.sh` script in `claude/` (and, if it should also guard Antigravity, a duplicate in `antigravity/` speaking its stdin/stdout contract).

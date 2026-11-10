@@ -41,7 +41,7 @@ and environment constraints before planning.
 
    <!-- lang:commands -->
 
-7. **Determine required rules & skills.** Identify repository rules (e.g. path-scoped rules in `.claude/rules/` / `.agents/rules/`) and skills (e.g. `ponytail`) that `/qcode` must load before executing the plan.
+7. **Determine required rules & skills.** Identify repository rules (e.g. path-scoped rules in `.claude/rules/`, `.agents/rules/`, or `.codex/guidance/`) and skills (e.g. `ponytail`) that `/qcode` must load before executing the plan.
 8. **Decide the execution strategy.** Choose `inline` or `delegated` per [Execution Strategy](#execution-strategy).
 9. **Plan browser verification.** If a browser check applies per [Browser Verification](#browser-verification), define its flows.
 10. **Clarify ambiguities.** If an ambiguity materially changes implementation decisions, pause and ask targeted questions in a single grouped prompt. Document minor assumptions directly in the plan.

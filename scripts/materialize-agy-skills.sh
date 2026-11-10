@@ -1,52 +1,51 @@
 #!/usr/bin/env bash
-#
-# materialize-agy-skills.sh — replace plugins/*/skills/<name>/ symlinks with
-# real file copies of skills/<name>/.
-#
-# Why: the marketplace ships one plugin, plugins/setup-agents/, and its skill
-# lives at plugins/setup-agents/skills/setup-agents/ (single source of truth is
-# top-level skills/setup-agents/ — see CLAUDE.md). Claude Code dereferences a
-# symlink there fine at install. `agy` (Antigravity CLI) does not: its plugin
-# scanner follows symlinked *files* but silently skips symlinked *directories*
-# (skills/<name>/), so the skill would be invisible to `agy plugin install`
-# unless it's a real directory copy. This loop stays generic over plugins/*/ so
-# it still works if more plugins are ever reintroduced.
-#
-# Run after editing anything under skills/<name>/, then commit both the source
-# and the regenerated plugins/*/skills/<name>/ copies. `--check` verifies
-# without writing (no symlinks left, no drift from source) and exits 1 if stale.
-
+# Generate the self-contained setup-agents bundle for all three marketplaces.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CHECK=0
-[ "${1:-}" = "--check" ] && CHECK=1
-STALE=0
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+bundle=plugins/setup-agents
+stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT
 
-for src in "$SCRIPT_DIR"/skills/*/; do
-  name="$(basename "$src")"
-  for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
-    dest="$plugin_dir/skills/$name"
-    [ -e "$dest" ] || [ -L "$dest" ] || continue
-    plugin="$(basename "$plugin_dir")"
-    if [ "$CHECK" = "1" ]; then
-      if [ -L "$dest" ]; then
-        echo "stale: plugins/$plugin/skills/$name is a symlink (agy won't see it) — run scripts/materialize-agy-skills.sh"
-        STALE=1
-      elif ! diff -rq "$src" "$dest" >/dev/null 2>&1; then
-        echo "drift: plugins/$plugin/skills/$name differs from skills/$name — run scripts/materialize-agy-skills.sh"
-        STALE=1
-      fi
-    else
-      rm -rf "$dest"
-      mkdir -p "$dest"
-      cp -R "${src}." "$dest/"
-      echo "materialized: plugins/$plugin/skills/$name"
-    fi
-  done
+mkdir -p "$stage/skills" "$stage/template/"{agents,hooks/{claude,antigravity,codex},lang,rules,skills,scripts}
+for name in setup-agents setup-claude setup-agy setup-codex; do
+  cp -Rp "skills/$name" "$stage/skills/"
 done
+cp -p agents/*.md "$stage/template/agents/"
+cp -p lang/*.md "$stage/template/lang/"
+for f in rules/*.md; do
+  [ "$f" = rules/README.md ] || cp -p "$f" "$stage/template/rules/"
+done
+for host in claude antigravity codex; do
+  cp -p "hooks/$host/"*.sh "$stage/template/hooks/$host/"
+done
+for skill in skills/*/SKILL.md; do
+  dir=${skill%/SKILL.md}
+  case "$dir" in skills/setup-*) continue ;; esac
+  cp -Rp "$dir" "$stage/template/skills/"
+done
+cp -p templates/CLAUDE.template.md "$stage/template/CLAUDE.md"
+cp -p templates/AGENTS.template.md "$stage/template/AGENTS.md"
+cp -p templates/{settings,codex-hooks}.json "$stage/template/"
+cp -p scripts/{render,materialize-codex}.sh "$stage/template/scripts/"
 
-if [ "$CHECK" = "1" ]; then
-  [ "$STALE" = "1" ] && exit 1
-  echo "ok: all plugins/*/skills/* copies are real files and match source"
-fi
+for part in skills template; do
+  if [ "${1:-}" = --check ]; then
+    if [ ! -d "$bundle/$part" ] || [ -L "$bundle/$part" ] ||
+      [ -n "$(find "$bundle/$part" -type l -print)" ] ||
+      ! diff -rq "$stage/$part" "$bundle/$part"; then
+      printf 'stale: %s/%s. Run scripts/materialize-agy-skills.sh\n' "$bundle" "$part" >&2
+      exit 1
+    fi
+    while IFS= read -r file; do
+      [ -x "$bundle/$part/${file#"$stage/$part/"}" ] || {
+        printf 'missing executable bit: %s\n' "${file#"$stage/"}" >&2
+        exit 1
+      }
+    done < <(find "$stage/$part" -type f -perm -100)
+  else
+    rm -rf "$bundle/$part"
+    cp -Rp "$stage/$part" "$bundle/"
+  fi
+done

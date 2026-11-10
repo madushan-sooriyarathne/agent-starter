@@ -14,7 +14,7 @@ if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
   fi
 fi
 
-TITLE="Claude Code"
+TITLE="${AGENT_STARTER_NOTIFY_TITLE:-Claude Code}"
 
 # Test/dry-run mode: print instead of notifying (used by hook fixtures).
 if [ "${AGENT_STARTER_NOTIFY_DRYRUN:-0}" = "1" ]; then

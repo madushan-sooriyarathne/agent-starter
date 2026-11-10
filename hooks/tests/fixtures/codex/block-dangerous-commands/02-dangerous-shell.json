@@ -1,0 +1,15 @@
+{
+  "name": "destructive command denied",
+  "stdin": {
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "rm -rf /"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"permissionDecision\":\"deny\"",
+    "recursive force-delete"
+  ]
+}

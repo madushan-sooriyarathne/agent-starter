@@ -1,0 +1,12 @@
+{
+  "name": "protected move destination in multi-file patch denied",
+  "stdin": {
+    "hook_event_name": "PreToolUse",
+    "tool_name": "apply_patch",
+    "tool_input": {
+      "command": "*** Begin Patch\n*** Add File: src/notes.ts\n+const value = 1\n*** Update File: notes.txt\n*** Move to: .env.local\n@@\n-old\n+new\n*** End Patch"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": ["\"permissionDecision\":\"deny\"", ".env.local"]
+}

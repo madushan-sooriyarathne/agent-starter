@@ -22,7 +22,7 @@ languages have no profile yet; their markers stay empty and the neutral text sta
 ## Filling a marker
 
 Apply to every file materialization writes from `${BUNDLE}/template/` — agents (and their
-Antigravity skill conversions), rules, bundled skills, workflow commands, and a freshly
+Antigravity skill and Codex TOML conversions), rules, bundled skills, workflow commands, and a freshly
 copied `CLAUDE.md`/`AGENTS.md` — after the copy and any `paths:` rewrite.
 
 Replace each `<!-- lang:<section> -->` line with an open comment carrying the language list,

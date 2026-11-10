@@ -1,0 +1,11 @@
+{
+  "name": "notifies once on a normal Stop",
+  "stdin": {
+    "hook_event_name": "Stop"
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": ["notify: Codex: Codex reached the end of a turn."],
+  "env": {
+    "AGENT_STARTER_NOTIFY_DRYRUN": "1"
+  }
+}

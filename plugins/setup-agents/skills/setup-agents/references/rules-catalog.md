@@ -1,6 +1,6 @@
 # Rules Catalog
 
-Rules files, copied from `${CLAUDE_PLUGIN_ROOT}/rules/` (slash command) or
+Rules files, copied from `${BUNDLE}/template/rules/` (slash command) or
 `$SCRIPT_DIR/rules/` (install.sh) into the target project's `.claude/rules/`.
 
 Most rules carry `paths:` frontmatter, so once installed they only load when

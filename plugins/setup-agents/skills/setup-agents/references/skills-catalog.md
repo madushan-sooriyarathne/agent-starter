@@ -125,8 +125,8 @@ bunx skills add <repo-url> --list
 ## Notes
 
 - **`-a <adapter> -y`** targets the detected host's agent and runs non-interactively:
-  `claude-code` (→ `.claude/skills/`) or `antigravity-cli` (→ `.agents/skills/`). Never
-  hard-code `claude-code` under Antigravity — it would leak skills into `.claude/skills/`.
+  `claude-code` writes to `.claude/skills/`. `antigravity-cli` and `codex` both
+  write to `.agents/skills/`, so select one of those adapters per project run.
   Run from the project directory for a project-level install; add `-g` for a user-level
   (global) install.
 - **`--skill <name>`** installs one named skill from a multi-skill repo. Omit it to be

@@ -1,0 +1,12 @@
+{
+  "name": "custom notification title",
+  "stdin": {
+    "message": "Check status"
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": ["notify: Starter: Check status"],
+  "env": {
+    "AGENT_STARTER_NOTIFY_DRYRUN": "1",
+    "AGENT_STARTER_NOTIFY_TITLE": "Starter"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "continued Stop does not run checks again",
+  "stdin": {
+    "hook_event_name": "Stop",
+    "stop_hook_active": true,
+    "session_id": "fixture-codex"
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["decision"]
+}

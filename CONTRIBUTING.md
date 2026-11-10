@@ -1,7 +1,6 @@
 # Contributing
 
-Thanks for helping improve **agent-starter**. This repo is a Claude Code plugin
-marketplace — agents, skills, rules, and safety hooks published through one
+Thanks for helping improve **agent-starter**. This repo provides plugin marketplaces for Claude Code and Codex and a local bundle for Antigravity — agents, skills, rules, and safety hooks published through one
 plugin, `setup-agents`. There is **no application code, build, or package
 manager**: everything is bash + Markdown + JSON.
 
@@ -13,14 +12,11 @@ manager**: everything is bash + Markdown + JSON.
 - The marketplace ships **exactly one plugin: `setup-agents`.** Adding a new
   agent/skill/rule/hook means dropping a file in the matching top-level dir. No
   per-component plugin dir, no marketplace entry.
-- Two install hosts: **Claude Code** (`.claude/` + `settings.json` + `CLAUDE.md`)
-  and **Antigravity** (flat `.agents/` + `hooks.json` + `AGENTS.md`). The scan
-  and selection logic is host-agnostic; only how the plan is written to disk
-  differs.
-- Hooks are **duplicated, not shimmed**, across hosts: `hooks/claude/<name>.sh`
-  and `hooks/antigravity/<name>.sh` implement the same detection rules against
-  each host's native contract. When detection logic changes, mirror it in both
-  files by hand.
+- The three hosts share the scan, catalogs, and language profiles. Codex and
+  Antigravity share `AGENTS.md` and `.agents/skills/` in the target project.
+- Antigravity has its own hook implementations. Codex translates its event
+  payloads in `hooks/codex/run.sh` and reuses the checks in `hooks/claude/`.
+  List the supported Codex events in `templates/codex-hooks.json`.
 
 For the full architecture and rationale, see [`CLAUDE.md`](CLAUDE.md) and the
 per-directory `README.md` files (`agents/`, `rules/`, `hooks/`, `skills/`).
@@ -35,9 +31,9 @@ bash scripts/test.sh
 
 It's the single consistency gate — bash syntax, JSON validity, `plugin.json`
 version parity, agent/skill frontmatter, hook antigravity-twin + fixture parity,
-catalog drift, agy-skill copy freshness, the hook fixture suite, and an
-`install.sh` smoke run. It fails **closed** on any structural break. Exit `0` =
-shippable. Missing optional CLIs (`claude`, `agy`, `jq`) are skipped, not failed.
+catalog drift, bundle freshness, the hook fixture suite, and installer and
+marketplace smoke tests. It fails **closed** on any structural break. Exit `0` =
+shippable. The gate requires `jq`. Host CLI checks run when the corresponding tool is available.
 
 Format everything first:
 
@@ -60,32 +56,30 @@ Every new component must also be listed in the matching
 
 ### Hooks — extra rules
 
-- Ship fixtures under `hooks/tests/fixtures/<host>/<name>/` (`<host>` = `claude`
-  or `antigravity`). No fixtures → the gate fails.
+- Ship fixtures under `hooks/tests/fixtures/<host>/<name>/` (`<host>` = `claude`, `antigravity`, or `codex`). Each supported hook needs fixtures.
 - Hooks fail **open** (exit 0) when `jq` is missing, **except** file-protection
   hooks, which fail closed.
 - Hook `timeout` values are in seconds.
 
-### Skills under `skills/setup-agents/`
+### Generated plugin bundle
 
-After editing anything there, regenerate the agy-native copy and commit it
-alongside your change:
+After editing any shipped source, regenerate the package and include the result
+with your change:
 
 ```bash
-./scripts/materialize-agy-skills.sh          # regenerate
-./scripts/materialize-agy-skills.sh --check   # verify not stale (no writes)
+./scripts/materialize-agy-skills.sh
+./scripts/materialize-agy-skills.sh --check
 ```
 
-`agy`'s scanner skips symlinked _directories_, so
-`plugins/setup-agents/skills/setup-agents/` is a real copy, not a symlink.
+Antigravity skips symlinked skill directories, and Codex's install cache omits
+symlinked template assets. The bundle contains real files for both.
 
 ## Versioning
 
-Bump the semver in **both**
-`plugins/setup-agents/.claude-plugin/plugin.json` and
-`plugins/setup-agents/plugin.json` whenever any shipped component changes (they
-all reach users through this one plugin). The marketplace entry carries **no**
-version — never set both.
+Keep the versions in `plugins/setup-agents/plugin.json`,
+`plugins/setup-agents/.claude-plugin/plugin.json`, and
+`plugins/setup-agents/.codex-plugin/plugin.json` in sync. Marketplace entries
+inherit the plugin version.
 
 ## Validating manifests
 
@@ -94,6 +88,7 @@ After changing any manifest, skill, or agent frontmatter:
 ```bash
 claude plugin validate . --strict        # marketplace + plugin manifests
 agy plugin validate plugins/setup-agents  # single plugin against agy's schema
+bash scripts/test-codex.sh marketplace    # isolated Codex CLI install
 ```
 
 ## Commits & PRs

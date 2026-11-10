@@ -1,0 +1,12 @@
+{
+  "name": "generated artifact edit denied",
+  "stdin": {
+    "hook_event_name": "PreToolUse",
+    "tool_name": "apply_patch",
+    "tool_input": {
+      "command": "*** Begin Patch\n*** Add File: dist/index.js\n+compiled\n*** End Patch"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": ["\"permissionDecision\":\"deny\"", "build output"]
+}

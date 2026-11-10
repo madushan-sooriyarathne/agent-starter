@@ -1,0 +1,12 @@
+{
+  "name": "unavailable file skipped after patch",
+  "stdin": {
+    "hook_event_name": "PostToolUse",
+    "tool_name": "apply_patch",
+    "tool_input": {
+      "command": "*** Begin Patch\n*** Add File: /tmp/agent-starter-fixture-missing.sh\n+echo test\n*** End Patch"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["hookSpecificOutput"]
+}

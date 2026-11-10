@@ -1,0 +1,12 @@
+{
+  "name": "safe command allowed",
+  "stdin": {
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "git status"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["permissionDecision"]
+}

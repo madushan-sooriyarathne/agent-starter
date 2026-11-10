@@ -3,12 +3,13 @@
 # agent-starter — install.sh
 #
 # Terminal entry point. Scaffolds a tailored agent workspace into a project for
-# one or both supported hosts:
+# any supported host:
 #   - Claude Code  -> .claude/{agents,rules,hooks} + settings.json + CLAUDE.md
 #   - Antigravity  -> .agents/{skills,rules,hooks,hooks.json,mcp_config.json} + AGENTS.md
+#   - Codex        -> .codex/{agents,guidance,hooks} + .agents/skills + AGENTS.md
 # Same flow as the /setup-agents slash command. Standard bash + bunx only.
 #
-# Usage:  ./install.sh
+# Usage:  ./install.sh [--host claude|agy|both|codex|all]
 #
 # Resolves its own location via SCRIPT_DIR, so it finds its agents/rules/hooks
 # regardless of where it is invoked from.
@@ -16,7 +17,22 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION="0.5.0"
+VERSION="0.6.0"
+LANG_PROFILE_DIR="$SCRIPT_DIR/lang"
+source "$SCRIPT_DIR/scripts/render.sh"
+
+host_choice=
+if [ "$#" -gt 0 ]; then
+  if [ "$#" -eq 2 ] && [ "$1" = --host ]; then
+    case "$2" in
+      claude | agy | antigravity | both | codex | all) host_choice="$2" ;;
+    esac
+  fi
+  if [ -z "$host_choice" ]; then
+    printf '%s\n' 'Usage: install.sh [--host claude|agy|both|codex|all]' >&2
+    exit 2
+  fi
+fi
 
 # Hooks with a native Antigravity implementation (hooks/antigravity/<name>.sh).
 # The 4 PreToolUse safety guardrails map 1:1. The other 6 needed a redesign
@@ -91,7 +107,7 @@ say "${BOLD}agent-starter${RESET} v$VERSION — agent project setup"
 TARGET_DEFAULT="$(pwd)"
 say ""
 say "Detected target directory: ${BOLD}$TARGET_DEFAULT${RESET}"
-printf "Install .claude/ here? [Y/n] or enter a different path: "
+printf "Install project configuration here? [Y/n] or enter a different path: "
 ask_line
 case "$REPLY_LINE" in
   "" | y | Y | yes | YES) TARGET="$TARGET_DEFAULT" ;;
@@ -112,36 +128,41 @@ TARGET="$(cd "$TARGET" && pwd)"
 # ========================================================================
 # Step 0.5 — Target platform(s)
 # ========================================================================
-# WANT_CLAUDE / WANT_AG gate the two materialization paths in Step 4. Selection
-# (agents/rules/hooks) is host-agnostic; only how it's written to disk differs.
-WANT_CLAUDE=1
+WANT_CLAUDE=0
 WANT_AG=0
-say ""
-say "Which agent host(s) to set up?"
-say "  1) Claude Code  ${DIM}(.claude/, default)${RESET}"
-say "  2) Antigravity  ${DIM}(.agents/)${RESET}"
-say "  3) Both"
-printf "> "
-ask_line
-case "$REPLY_LINE" in
-  "" | 1 | claude | Claude)
-    WANT_CLAUDE=1
-    WANT_AG=0
-    ;;
-  2 | antigravity | Antigravity)
-    WANT_CLAUDE=0
-    WANT_AG=1
-    ;;
+WANT_CODEX=0
+if [ -z "$host_choice" ]; then
+  say ""
+  say "Which agent host(s) to set up?"
+  say "  1) Claude Code  ${DIM}(.claude/, default)${RESET}"
+  say "  2) Antigravity  ${DIM}(.agents/)${RESET}"
+  say "  3) Both (Claude Code and Antigravity)"
+  say "  4) Codex        ${DIM}(.codex/ + .agents/skills/)${RESET}"
+  say "  5) All three"
+  printf "> "
+  ask_line
+  host_choice="$REPLY_LINE"
+fi
+case "$host_choice" in
+  "" | 1 | claude | Claude) WANT_CLAUDE=1 ;;
+  2 | agy | antigravity | Antigravity) WANT_AG=1 ;;
   3 | both | Both)
     WANT_CLAUDE=1
     WANT_AG=1
     ;;
+  4 | codex | Codex) WANT_CODEX=1 ;;
+  5 | all | All)
+    WANT_CLAUDE=1
+    WANT_AG=1
+    WANT_CODEX=1
+    ;;
   *)
     WANT_CLAUDE=1
-    WANT_AG=0
     say "  ${DIM}Unrecognized — defaulting to Claude Code.${RESET}"
     ;;
 esac
+WANT_SHARED=0
+if [ "$WANT_AG" = 1 ] || [ "$WANT_CODEX" = 1 ]; then WANT_SHARED=1; fi
 
 # ========================================================================
 # Step 0.6 — Per-host gap markers
@@ -152,10 +173,15 @@ esac
 # below: gap remediation (missing/orphan) instead of the fresh-install tiers.
 CLAUDE_GAP=0
 AG_GAP=0
+CODEX_GAP=0
 [ "$WANT_CLAUDE" = "1" ] && { [ -d "$TARGET/.claude" ] || [ -f "$TARGET/CLAUDE.md" ]; } && CLAUDE_GAP=1
-[ "$WANT_AG" = "1" ] && { [ -d "$TARGET/.agents" ] || [ -f "$TARGET/AGENTS.md" ]; } && AG_GAP=1
+[ "$WANT_AG" = 1 ] && {
+  [ -d "$TARGET/.agents/rules" ] || [ -d "$TARGET/.agents/hooks" ] ||
+    [ -f "$TARGET/.agents/hooks.json" ] || [ -f "$TARGET/.agents/mcp_config.json" ]
+} && AG_GAP=1
+[ "$WANT_CODEX" = 1 ] && [ -d "$TARGET/.codex" ] && CODEX_GAP=1
 GAP_MODE=0
-{ [ "$CLAUDE_GAP" = "1" ] || [ "$AG_GAP" = "1" ]; } && GAP_MODE=1
+{ [ "$CLAUDE_GAP" = "1" ] || [ "$AG_GAP" = "1" ] || [ "$CODEX_GAP" = "1" ]; } && GAP_MODE=1
 
 # ---- mechanical detection helpers (no node_modules/.git/vendor/build noise) ----
 PRUNE_EXPR=(-path '*/node_modules/*' -o -path '*/.git/*' -o -path '*/vendor/*' -o -path '*/dist/*' -o -path '*/build/*' -o -path '*/.next/*')
@@ -366,7 +392,7 @@ fi
 
 # Empty project → minimal baseline, no further questions.
 if [ ${#detectedStack[@]} -eq 0 ] && [ "$HAS_PKG" != "1" ] && ! has_any '*.go' && ! has_any '*.py' && ! has_any '*.rb'; then
-  say "  ${YELLOW}No source files or manifests found.${RESET} Installing minimal baseline only (CLAUDE.md + safety hooks)."
+  say "  ${YELLOW}No source files or manifests found.${RESET} Installing minimal baseline only (project instructions + safety hooks)."
   sel_agents=()
   sel_rules=()
   sel_hooks=(block-dangerous-commands scan-secrets protect-files warn-large-files)
@@ -397,7 +423,7 @@ else
     [ "${STACK_EDIT:-0}" = "1" ] && TIER="letmecheck"
     if [ -z "$TIER" ]; then
       head "Install tier"
-      say "  1) Minimal   — CLAUDE.md + 4 safety hooks only"
+      say "  1) Minimal   — project instructions + 4 safety hooks only"
       say "  2) Standard  — recommended picks from the scan ${DIM}(default)${RESET}"
       say "  3) Full      — everything in every category + all 3 plugins"
       say "  4) Custom    — pick each agent, rule, hook & skill individually"
@@ -421,8 +447,8 @@ else
       sel_skills=()
       sel_plugins=()
       WANT_CLAUDEMD=1
-      [ -f "$TARGET/CLAUDE.md" ] && WANT_CLAUDEMD=0 # crucial: don't overwrite existing without asking
-      if [ -f "$TARGET/CLAUDE.md" ] && [ "$INTERACTIVE" = "1" ]; then
+      [ "$WANT_CLAUDE" = 1 ] && [ -f "$TARGET/CLAUDE.md" ] && WANT_CLAUDEMD=0 # crucial: don't overwrite existing without asking
+      if [ "$WANT_CLAUDE" = 1 ] && [ -f "$TARGET/CLAUDE.md" ] && [ "$INTERACTIVE" = "1" ]; then
         EXIST_LINES=$(grep -cv '^[[:space:]]*$' "$TARGET/CLAUDE.md" 2>/dev/null || printf '0')
         TMPL_LINES=$(grep -cv '^[[:space:]]*$' "$SCRIPT_DIR/templates/CLAUDE.template.md" 2>/dev/null || printf '0')
         say "  CLAUDE.md exists at project root (${EXIST_LINES} non-blank lines); template has ${TMPL_LINES}."
@@ -434,6 +460,11 @@ else
       MINIMAL_BASELINE=1
     fi
   fi
+fi
+
+AGENTS_DOC=keep
+if [ "$WANT_SHARED" = 1 ] && [ ! -e "$TARGET/AGENTS.md" ] && [ ! -L "$TARGET/AGENTS.md" ]; then
+  AGENTS_DOC=create
 fi
 
 # Existing managed files on disk, per host (gap-analysis missing/orphan diffing).
@@ -521,86 +552,6 @@ copy_managed() { # copy_managed <src> <dest> <label> ; returns 0 if a fresh copy
   fi
   cp "$src" "$dest" && ok "$label" && return 0
   return 1
-}
-
-# lang_fill <file> — replace each <!-- lang:<section> --> marker (fresh copy) or
-# existing <!-- lang:<section>=<langs> --> … <!-- /lang --> block (re-tailor)
-# with that ## section from every detected language's lang/<id>.md profile.
-# The installed block keeps its open/close comments so a later run can refill
-# it in place without touching user edits outside it.
-lang_fill() {
-  local f="$1" opens closes
-  grep -q '<!-- lang:' "$f" 2>/dev/null || return 0
-  opens=$(grep -c '<!-- lang:[a-z-]*=' "$f")
-  closes=$(grep -c '<!-- /lang -->' "$f")
-  if [ "$opens" != "$closes" ]; then
-    skip "$(basename "$f"): unbalanced <!-- lang --> block — not re-tailored"
-    return 0
-  fi
-  awk -v langs="$LANGS_CSV" -v dir="$SCRIPT_DIR/lang" '
-    function emit(sec, ind,   n, ids, i, j, k, path, line, on, title, body, out, printed) {
-      print ind "<!-- lang:" sec "=" langs " -->"
-      n = split(langs, ids, ",")
-      for (i = 1; i <= n; i++) {
-        path = dir "/" ids[i] ".md"; on = 0; title = ""; body = ""
-        while ((getline line < path) > 0) {
-          if (title == "" && line ~ /^# /) title = substr(line, 3)
-          if (line ~ /^## /) { on = (line == "## " sec); continue }
-          if (on) body = body line "\n"
-        }
-        close(path)
-        sub(/^\n+/, "", body); sub(/\n+$/, "", body)
-        if (body == "") continue
-        if (printed) print ""
-        printed = 1
-        print ind "**" title ":**"
-        print ""
-        k = split(body, out, "\n")
-        for (j = 1; j <= k; j++) print (out[j] == "" ? "" : ind out[j])
-      }
-      print ind "<!-- /lang -->"
-    }
-    skip { if ($0 ~ /<!-- \/lang -->/) skip = 0; next }
-    match($0, /<!-- lang:[a-z-]+(=[a-z,]*)? -->/) {
-      ind = substr($0, 1, RSTART - 1)
-      tag = substr($0, RSTART + 10, RLENGTH - 14)
-      sec = tag
-      eq = index(tag, "=")
-      if (eq) { sec = substr(tag, 1, eq - 1); skip = 1 }
-      emit(sec, ind)
-      next
-    }
-    { print }
-  ' "$f" >"$f.lang.$$" && mv "$f.lang.$$" "$f"
-}
-
-# lang_recorded <file> — the language list(s) recorded in a file's filled
-# blocks, one per line (empty output = no filled blocks).
-lang_recorded() { grep -o '<!-- lang:[a-z-]*=[a-z,]* -->' "$1" 2>/dev/null | sed 's/.*=\([a-z,]*\) -->/\1/' | sort -u; }
-
-# Rewrite rule/skill `paths:` globs from src/ to the project's real source dir.
-rewrite_paths() {
-  [ -n "$PRIMARY_SRC_DIR" ] && grep -q '^paths:' "$1" 2>/dev/null || return 0
-  sed -i.bak "/^paths:/,/^---/ s#\"src/#\"$PRIMARY_SRC_DIR/#g" "$1"
-  rm -f "$1.bak"
-}
-
-# ag_skill_write <src> <dest> <name> — Antigravity skill from an agent or skill
-# source: frontmatter reduced to name+description (agy is picky about extra
-# keys), body carried verbatim, then language-tailored.
-ag_skill_write() {
-  local src="$1" dest="$2" name="$3" desc
-  mkdir -p "$(dirname "$dest")"
-  desc="$(awk -F': ' '/^description:/{ $1=""; sub(/^: /,""); print substr($0,2); exit }' "$src")"
-  {
-    printf '%s\n' "---"
-    printf 'name: %s\n' "$name"
-    printf 'description: %s\n' "${desc:-$name}"
-    printf '%s\n' "---"
-    # Body = everything after the closing frontmatter delimiter.
-    awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$src"
-  } >"$dest"
-  lang_fill "$dest"
 }
 
 # ========================================================================
@@ -837,7 +788,14 @@ select_all() {
     case "$REPLY_LINE" in "" | y | Y | yes | YES) WANT_WORKFLOW=1 ;; *) WANT_WORKFLOW=0 ;; esac
   fi
 
+  if [ "$WANT_SHARED" = 1 ] && [ "$TIER" = letmecheck ] && [ "$AGENTS_DOC" = create ]; then
+    printf "  Copy the AGENTS.md template to the project root? [Y/n]: "
+    ask_line
+    case "$REPLY_LINE" in n | N | no | NO) AGENTS_DOC=keep ;; esac
+  fi
+
   # --- CLAUDE.md ---
+  [ "$WANT_CLAUDE" = 1 ] || return 0
   head "CLAUDE.md template"
   WANT_CLAUDEMD=0
   if [ -f "$TARGET/CLAUDE.md" ]; then
@@ -889,7 +847,7 @@ rt_check() { # rt_check <claude|rule|ag-skill|doc> <src> <dest>
   RT_DEST+=("$dest")
 }
 scan_retailor() {
-  local n
+  local n f
   RT_MODE=()
   RT_KIND=()
   RT_SRC=()
@@ -905,10 +863,24 @@ scan_retailor() {
   if [ "$WANT_AG" = "1" ]; then
     for n in "${cat_rule_names[@]}"; do rt_check rule "$SCRIPT_DIR/rules/$n.md" "$TARGET/.agents/rules/$n.md"; done
     for n in "${cat_agent_names[@]}"; do rt_check ag-skill "$SCRIPT_DIR/agents/$n.md" "$TARGET/.agents/skills/$n/SKILL.md"; done
+  fi
+  if [ "$WANT_CODEX" = 1 ]; then
+    for n in "${cat_agent_names[@]}"; do
+      f="$TARGET/.codex/agents/$n.toml"
+      [ -L "$f" ] || ! grep -qFx '# Generated by agent-starter' "$f" 2>/dev/null ||
+        rt_check codex-agent "$SCRIPT_DIR/agents/$n.md" "$f"
+    done
+    for n in "${cat_rule_names[@]}"; do
+      f="$TARGET/.codex/guidance/$n.md"
+      [ -L "$f" ] || ! grep -qFx '<!-- agent-starter:codex-guidance -->' "$f" 2>/dev/null ||
+        rt_check rule "$SCRIPT_DIR/rules/$n.md" "$f"
+    done
+  fi
+  if [ "$WANT_SHARED" = 1 ]; then
     for n in "${cat_bundled_names[@]}" "${WORKFLOW_SKILLS[@]}"; do
       rt_check ag-skill "$SCRIPT_DIR/skills/$n/SKILL.md" "$TARGET/.agents/skills/$n/SKILL.md"
     done
-    rt_check doc "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/AGENTS.md"
+    rt_check doc "$SCRIPT_DIR/templates/AGENTS.template.md" "$TARGET/AGENTS.md"
   fi
 }
 
@@ -932,6 +904,7 @@ run_gap_flow() {
     miss=0
     [ "$WANT_CLAUDE" = "1" ] && ! contains "$n" "${EXIST_CL_AGENTS[@]:-}" && miss=1
     [ "$WANT_AG" = "1" ] && ! contains "$n" "${EXIST_AG_AGENTS[@]:-}" && miss=1
+    [ "$WANT_CODEX" = 1 ] && [ ! -f "$TARGET/.codex/agents/$n.toml" ] && miss=1
     [ "$miss" = "1" ] && MISS_AGENTS+=("$n")
   done
   for n in "${rec_rules[@]:-}"; do
@@ -939,6 +912,7 @@ run_gap_flow() {
     miss=0
     [ "$WANT_CLAUDE" = "1" ] && ! contains "$n" "${EXIST_CL_RULES[@]:-}" && miss=1
     [ "$WANT_AG" = "1" ] && ! contains "$n" "${EXIST_AG_RULES[@]:-}" && miss=1
+    [ "$WANT_CODEX" = 1 ] && [ ! -f "$TARGET/.codex/guidance/$n.md" ] && miss=1
     [ "$miss" = "1" ] && MISS_RULES+=("$n")
   done
   for n in "${rec_hooks[@]:-}"; do
@@ -949,6 +923,16 @@ run_gap_flow() {
     if [ "$WANT_AG" = "1" ]; then
       case " $AG_SUPPORTED_HOOKS " in *" $n "*) contains "$n" "${EXIST_AG_HOOKS[@]:-}" || miss=1 ;; esac
     fi
+    if [ "$WANT_CODEX" = 1 ] && {
+      [ ! -x "$TARGET/.codex/hooks/agent-starter/run.sh" ] ||
+        [ ! -x "$TARGET/.codex/hooks/agent-starter/policies/$n.sh" ] ||
+        ! jq -e --slurpfile registry "$SCRIPT_DIR/templates/codex-hooks.json" --arg name "$n" \
+          --arg suffix "/.codex/hooks/agent-starter/run.sh\" $n" '
+          . as $config | all($registry[0][$name][]; . as $spec |
+            any($config.hooks[$spec.event][]?; .matcher == $spec.matcher and
+              any(.hooks[]?; (.command // "") | endswith($suffix))))
+        ' "$TARGET/.codex/hooks.json" >/dev/null 2>&1
+    }; then miss=1; fi
     [ "$miss" = "1" ] && MISS_HOOKS+=("$n")
   done
 
@@ -981,6 +965,8 @@ run_gap_flow() {
     for n in "${EXIST_AG_AGENTS[@]:-}"; do
       [ -n "$n" ] || continue
       contains "$n" "${cat_agent_names[@]}" || continue # external/user skills ignored
+      # The shared tree may already be used by Codex or contain user-authored skills.
+      [ "$WANT_CODEX" = 0 ] && [ ! -d "$TARGET/.codex" ] || continue
       contains "$n" "${rec_agents[@]:-}" || ORPH_AG_AGENTS+=("$n")
     done
     for n in "${EXIST_AG_RULES[@]:-}"; do
@@ -1008,6 +994,7 @@ run_gap_flow() {
   local gt=""
   [ "$CLAUDE_GAP" = "1" ] && gt="Claude Code"
   [ "$AG_GAP" = "1" ] && gt="${gt:+$gt + }Antigravity"
+  [ "$CODEX_GAP" = 1 ] && gt="${gt:+$gt + }Codex"
   head "Gap analysis (Targets: ${gt:-—})"
 
   if [ "$total_miss" = "0" ] && [ "$total_orph" = "0" ] && [ ${#RT_DEST[@]} -eq 0 ]; then
@@ -1176,6 +1163,29 @@ run_gap_flow() {
   return 0
 }
 
+plan_codex_doc() {
+  if [ "$WANT_CODEX" = 1 ] && [ "$AGENTS_DOC" = keep ] && [ ${#sel_rules[@]} -gt 0 ] &&
+    [ "$INTERACTIVE" = 1 ] && [ -f "$TARGET/AGENTS.md" ] &&
+    ! grep -qF '.codex/guidance/' "$TARGET/AGENTS.md"; then
+    printf "Link Codex guidance from the existing AGENTS.md? [y/N]: "
+    ask_line
+    case "$REPLY_LINE" in y | Y | yes | YES) AGENTS_DOC=merge ;; esac
+  fi
+}
+
+approve_codex_plan() {
+  [ "$WANT_CODEX" = 1 ] && [ "$INTERACTIVE" = 1 ] || return 0
+  printf "Approve plan? [y/N]: "
+  ask_line
+  case "$REPLY_LINE" in
+    y | Y | yes | YES) ;;
+    *)
+      say "Cancelled."
+      exit 0
+      ;;
+  esac
+}
+
 print_plan() {
   head "Plan"
   say "  Install agents:  ${sel_agents[*]:-(none)}"
@@ -1185,7 +1195,9 @@ print_plan() {
   say "  Install skills:  ${sel_skills[*]:-(none)}"
   say "  Bundled skills:  ${sel_bundled[*]:-(none)}"
   say "  Workflow cmds:   $([ "$WANT_WORKFLOW" = "1" ] && echo "${WORKFLOW_SKILLS[*]}" || echo "(none)")"
-  say "  CLAUDE.md:       $([ "$WANT_CLAUDEMD" = "1" ] && echo "install/overwrite" || echo "skip")"
+  [ "$WANT_CLAUDE" = 0 ] || say "  CLAUDE.md:       $([ "$WANT_CLAUDEMD" = "1" ] && echo "install/overwrite" || echo "skip")"
+  [ "$WANT_SHARED" = 0 ] || say "  AGENTS.md:       $AGENTS_DOC"
+  [ "$WANT_CODEX" = 0 ] || say "  Codex paths:     .codex/{agents,guidance,hooks} + .agents/skills/"
   say "  Tailor for:      ${LANGS_CSV:-(no language profile)}"
   if [ ${#RT_DEST[@]} -gt 0 ]; then
     local m nf=0 nc=0
@@ -1239,11 +1251,18 @@ WANT_RECOPY=0
 if [ "$MINIMAL_BASELINE" = "1" ]; then
   sel_plugins=()
   print_plan
+  approve_codex_plan
 elif [ "$TIER" = "gap" ]; then
   # Gap-analysis fork: reconcile against existing config. Always ask approval
   # (the plan may carry destructive remove rows) unless in-sync or non-interactive.
   run_gap_flow
-  if [ "$GAP_INSYNC" != "1" ]; then
+  if [ "$WANT_CODEX" = 1 ] && [ "$CODEX_GAP" = 0 ]; then
+    sel_bundled=("${rec_bundled[@]}")
+    WANT_WORKFLOW=1
+    GAP_INSYNC=0
+  fi
+  if [ "$GAP_INSYNC" != 1 ] || [ "$AGENTS_DOC" = create ]; then
+    plan_codex_doc
     print_plan
     if [ "$INTERACTIVE" = "1" ]; then
       printf "Approve plan? [Y]es / [c]ancel: "
@@ -1262,12 +1281,17 @@ elif [ "$TIER" = "gap" ]; then
 elif [ "$TIER" = "standard" ] || [ "$TIER" = "full" ]; then
   # One-shot tiers: build selection silently, render the plan, auto-proceed.
   select_all
+  plan_codex_doc
   print_plan
-  say "  ${DIM}($TIER tier — auto-approved)${RESET}"
+  approve_codex_plan
+  if [ "$WANT_CODEX" = 0 ] || [ "$INTERACTIVE" = 0 ]; then
+    say "  ${DIM}($TIER tier — auto-approved)${RESET}"
+  fi
 else
   # Let me check: interactive, with approve/adjust loop.
   while true; do
     select_all
+    plan_codex_doc
     print_plan
     printf "Approve plan? [Y]es / [a]djust / [c]ancel: "
     ask_line
@@ -1398,7 +1422,7 @@ const reg = {
   'session-start':            [{ event: 'SessionStart', matcher: 'startup|resume|clear' }],
 };
 let s = {};
-try { s = JSON.parse(fs.readFileSync(settingsPath, 'utf8') || '{}'); } catch (e) { s = {}; }
+if (fs.existsSync(settingsPath)) s = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
 s.hooks = s.hooks || {};
 for (const h of hooks) {
   const regs = reg[h];
@@ -1423,8 +1447,8 @@ for (const ev of Object.keys(s.hooks)) {
   const groups = (s.hooks[ev] || []).map(g => {
     if (g && Array.isArray(g.hooks)) {
       g.hooks = g.hooks.filter(x => {
-        const m = x && x.command && x.command.match(/\/hooks\/([\w-]+)\.sh/);
-        return !m || fs.existsSync(path.join(hooksDir, m[1] + '.sh'));
+        const m = x && x.command && x.command.match(/^bash "\$CLAUDE_PROJECT_DIR\/\.claude\/hooks\/([\w-]+)\.sh"$/);
+        return !m || !reg[m[1]] || fs.existsSync(path.join(hooksDir, m[1] + '.sh'));
       });
     }
     return g;
@@ -1556,7 +1580,7 @@ if [ "$WANT_AG" = "1" ]; then
   # Workflow commands → skills/<name>/SKILL.md. Same source as the Claude copy,
   # but frontmatter reduced to name+description (agy is picky about extra keys —
   # mirrors the agent→skill reduction above); body language-tailored.
-  if [ "$WANT_WORKFLOW" = "1" ]; then
+  if [ "$WANT_WORKFLOW" = "1" ] && [ "$WANT_CODEX" = 0 ]; then
     for w in "${WORKFLOW_SKILLS[@]}"; do
       src="$SCRIPT_DIR/skills/$w/SKILL.md"
       [ -f "$src" ] || {
@@ -1579,6 +1603,9 @@ if [ "$WANT_AG" = "1" ]; then
   # selected rather than an all-or-none group.
   if [ ${#sel_bundled[@]} -gt 0 ]; then
     for w in "${sel_bundled[@]}"; do
+      if [ "$WANT_CODEX" = 1 ]; then
+        case "$w" in claude-md | context-budget) ;; *) continue ;; esac
+      fi
       src="$SCRIPT_DIR/skills/$w/SKILL.md"
       [ -f "$src" ] || {
         skip "skill: $w (source missing)"
@@ -1640,12 +1667,16 @@ if [ "$WANT_AG" = "1" ]; then
   if [ ${#ag_hooks[@]} -gt 0 ]; then
     mkdir -p "$AG_ROOT/hooks"
     for h in "${ag_hooks[@]}"; do
-      cp "$SCRIPT_DIR/hooks/antigravity/$h.sh" "$AG_ROOT/hooks/$h.sh" && chmod +x "$AG_ROOT/hooks/$h.sh" && AG_INSTALLED_HOOKS+=("$h")
+      if copy_managed "$SCRIPT_DIR/hooks/antigravity/$h.sh" "$AG_ROOT/hooks/$h.sh" "AG hook: $h"; then
+        chmod +x "$AG_ROOT/hooks/$h.sh"
+      fi
+      [ ! -x "$AG_ROOT/hooks/$h.sh" ] || AG_INSTALLED_HOOKS+=("$h")
     done
   fi
   # (Re)generate hooks.json when wiring hooks, or when a removal changed the set
   # (an emptied set writes a valid `{}`).
   if [ ${#ag_hooks[@]} -gt 0 ] || [ ${#REMOVE_AG_HOOKS[@]} -gt 0 ]; then
+    ag_settings_new=$(mktemp "$AG_ROOT/.hooks.XXXXXX") || exit 1
     {
       printf '{\n'
       first=1
@@ -1662,15 +1693,33 @@ if [ "$WANT_AG" = "1" ]; then
         fi
       done
       printf '\n}\n'
-    } >"$AG_ROOT/hooks.json"
-    ok "hooks.json (${#ag_hooks[@]} hook$([ ${#ag_hooks[@]} -ne 1 ] && echo s), native)"
-  fi
-
-  # Project context → AGENTS.md (Antigravity's CLAUDE.md equivalent).
-  if [ "$WANT_CLAUDEMD" = "1" ] && [ -f "$SCRIPT_DIR/templates/CLAUDE.template.md" ]; then
-    if [ -e "$TARGET/AGENTS.md" ]; then
-      skip "AGENTS.md (exists, kept)"
-    else cp "$SCRIPT_DIR/templates/CLAUDE.template.md" "$TARGET/AGENTS.md" && lang_fill "$TARGET/AGENTS.md" && ok "AGENTS.md"; fi
+    } >"$ag_settings_new"
+    ag_settings="$AG_ROOT/hooks.json"
+    if [ -L "$ag_settings" ]; then
+      skip "Antigravity hooks.json is a symlink, kept"
+    elif [ ! -e "$ag_settings" ]; then
+      chmod 644 "$ag_settings_new"
+      mv "$ag_settings_new" "$ag_settings" && ok "wrote Antigravity hooks.json"
+    elif command -v jq >/dev/null 2>&1; then
+      ag_merged=$(mktemp "$AG_ROOT/.hooks.XXXXXX") || exit 1
+      ag_removed=$(json_array "${REMOVE_AG_HOOKS[@]:-}")
+      if jq --slurpfile new "$ag_settings_new" --argjson removed "$ag_removed" '
+        if type != "object" then error("expected an object") else . end |
+        reduce ($new[0] | keys_unsorted[]) as $name (.;
+          if has($name) then . else .[$name] = $new[0][$name] end
+        ) | delpaths($removed | map(select(length > 0) | [.]))
+      ' "$ag_settings" >"$ag_merged"; then
+        if [ "$(jq -c . "$ag_settings")" != "$(jq -c . "$ag_merged")" ]; then
+          cat "$ag_merged" >"$ag_settings" && ok "merged Antigravity hooks.json"
+        fi
+      else
+        skip "Antigravity hooks.json could not be merged, kept"
+      fi
+      rm -f "$ag_merged"
+    else
+      skip "jq is required to merge existing Antigravity hooks.json, kept"
+    fi
+    rm -f "$ag_settings_new"
   fi
 
   # Drift fingerprint (mirrors Claude Step 5) — session-start.sh reads this
@@ -1683,13 +1732,42 @@ if [ "$WANT_AG" = "1" ]; then
   fi
 fi # end WANT_AG
 
+if [ "$WANT_CODEX" = 1 ]; then
+  head "Codex → .codex/ + .agents/skills/"
+  codex_args=("$TARGET" --lang "$LANGS_CSV" --source-dir "$PRIMARY_SRC_DIR" --doc "$AGENTS_DOC")
+  for a in "${sel_agents[@]:-}"; do [ -z "$a" ] || codex_args+=(--agent "$a"); done
+  for r in "${sel_rules[@]:-}"; do [ -z "$r" ] || codex_args+=(--rule "$r"); done
+  for h in "${sel_hooks[@]:-}"; do [ -z "$h" ] || codex_args+=(--hook "$h"); done
+  for w in "${sel_bundled[@]:-}"; do
+    case "$w" in
+      "") ;;
+      claude-md | context-budget) [ "$WANT_AG" = 1 ] || skip "$w (Claude-specific skill)" ;;
+      *) codex_args+=(--skill "$w") ;;
+    esac
+  done
+  if [ "$WANT_WORKFLOW" = 1 ]; then
+    for w in "${WORKFLOW_SKILLS[@]}"; do codex_args+=(--skill "$w"); done
+  fi
+  if [ "$WANT_REFILL" = 1 ]; then
+    for ((i = 0; i < ${#RT_DEST[@]}; i++)); do
+      if [ "${RT_KIND[$i]}" = codex-agent ]; then
+        codex_args+=(--refill-agent "$(basename "${RT_DEST[$i]}" .toml)")
+      fi
+    done
+  fi
+  bash "$SCRIPT_DIR/scripts/materialize-codex.sh" "${codex_args[@]}" || exit $?
+elif [ "$WANT_AG" = 1 ] && [ "$AGENTS_DOC" = create ]; then
+  copy_managed "$SCRIPT_DIR/templates/AGENTS.template.md" "$TARGET/AGENTS.md" AGENTS.md && lang_fill "$TARGET/AGENTS.md"
+fi
+
 # ========================================================================
 # Step 4b' — Re-tailor (gap mode): refresh language blocks per the approved plan
 # ========================================================================
 for ((i = 0; i < ${#RT_DEST[@]}; i++)); do
   rt_dest="${RT_DEST[$i]}"
   rt_src="${RT_SRC[$i]}"
-  [ -f "$rt_dest" ] || continue # removed as an orphan this run
+  [ "${RT_KIND[$i]}" != codex-agent ] || continue # handled by the Codex writer
+  [ -f "$rt_dest" ] || continue                   # removed as an orphan this run
   if [ "${RT_MODE[$i]}" = refill ]; then
     [ "$WANT_REFILL" = "1" ] || continue
     lang_fill "$rt_dest"
@@ -1707,19 +1785,23 @@ done
 # ========================================================================
 # Step 4c — Skills catalog + third-party plugins (host-aware)
 # ========================================================================
-# Both use the Vercel `skills` CLI, which supports a project-scoped
-# `antigravity-cli` adapter (writes .agents/skills/) alongside `claude-code`
-# (writes .claude/skills/) — so these run for whichever host(s) were selected,
-# not just Claude Code. CLAUDE.md/AGENTS.md already exist by this point.
+# External skills use the Vercel skills CLI. The Antigravity and Codex
+# adapters share one project directory, so choose one of them per run.
 append_contextmd() { # append_contextmd <claude|ag|both> "<markdown block>"
   case "$1" in claude | both) [ "$WANT_CLAUDE" = "1" ] && [ -f "$TARGET/CLAUDE.md" ] &&
     printf '\n%s\n' "$2" >>"$TARGET/CLAUDE.md" ;; esac
-  case "$1" in ag | both) [ "$WANT_AG" = "1" ] && [ -f "$TARGET/AGENTS.md" ] &&
+  # Shared context is owned by one writer, and kept docs stay untouched.
+  case "$1" in ag | both) [ "$WANT_SHARED" = 1 ] && [ "$AGENTS_DOC" != keep ] && [ -f "$TARGET/AGENTS.md" ] &&
+    ! grep -qFx -- "${2%%$'\n'*}" "$TARGET/AGENTS.md" &&
     printf '\n%s\n' "$2" >>"$TARGET/AGENTS.md" ;; esac
 }
 SKILL_ADAPTERS=()
 [ "$WANT_CLAUDE" = "1" ] && SKILL_ADAPTERS+=("claude-code")
-[ "$WANT_AG" = "1" ] && SKILL_ADAPTERS+=("antigravity-cli")
+if [ "$WANT_CODEX" = 1 ]; then
+  SKILL_ADAPTERS+=("codex")
+elif [ "$WANT_AG" = 1 ]; then
+  SKILL_ADAPTERS+=("antigravity-cli")
+fi
 
 # Mode nudges appended to the host doc(s) when the matching base skill installs.
 CAVEMAN_CTX="# Communication style
@@ -1760,6 +1842,14 @@ if [ ${#sel_skills[@]} -gt 0 ]; then
       done
       installed_any=0
       for adapter in "${SKILL_ADAPTERS[@]}"; do
+        case "$adapter" in
+          claude-code) skill_dest="$TARGET/.claude/skills/$skn" ;;
+          *) skill_dest="$TARGET/.agents/skills/$skn" ;;
+        esac
+        if [ -e "$skill_dest" ] || [ -L "$skill_dest" ]; then
+          skip "skill: $skn ($adapter exists, kept)"
+          continue
+        fi
         printf "  installing skill: %s --skill %s (%s)\n" "$repo" "$skn" "$adapter"
         if (cd "$TARGET" && "$RUNNER" skills add "$repo" --skill "$skn" -a "$adapter" -y </dev/null); then
           installed_any=1
@@ -1790,6 +1880,12 @@ if [ ${#sel_plugins[@]} -gt 0 ]; then
   for p in "${sel_plugins[@]}"; do
     case "$p" in
       graphify)
+        if [ "$WANT_CODEX" = 1 ] && [ "$WANT_CLAUDE" = 0 ] && [ "$WANT_AG" = 0 ]; then
+          skip "graphify project integration (requires separate Codex setup)"
+          continue
+        fi
+        graphify_platform=claude
+        [ "$WANT_CLAUDE" = 1 ] || graphify_platform=antigravity
         GPM=""
         if command -v uv >/dev/null 2>&1; then
           GPM="uv tool install graphifyy"
@@ -1803,11 +1899,11 @@ if [ ${#sel_plugins[@]} -gt 0 ]; then
           continue
         fi
         say "  graphify: installing via ${GPM%% *}…"
-        if (cd "$TARGET" && eval "$GPM" </dev/null) && (cd "$TARGET" && graphify install --project </dev/null); then
+        if (cd "$TARGET" && eval "$GPM" </dev/null) && (cd "$TARGET" && graphify install --project --platform "$graphify_platform" </dev/null); then
           append_contextmd both "# Codebase graph
 Before searching raw files for architecture questions, read \`graphify-out/GRAPH_REPORT.md\`
 for god nodes and community structure. Use it to locate high-impact files before grepping."
-          ok "plugin: graphify — now run  /graphify .  in Claude Code to build the graph; commit graphify-out/"
+          ok "plugin: graphify — now run /graphify . in $graphify_platform to build the graph; commit graphify-out/"
         else skip "graphify: install failed — continuing"; fi
         case "$GPM" in pip\ *) say "  ${DIM}(pip: ensure graphify is on PATH — see uv/pipx if not)${RESET}" ;; esac
         ;;
@@ -1844,6 +1940,7 @@ TOKEN_EST=$((TOKEN_CHARS / 4))
 plats=""
 [ "$WANT_CLAUDE" = "1" ] && plats="Claude Code"
 [ "$WANT_AG" = "1" ] && plats="${plats:+$plats + }Antigravity"
+[ "$WANT_CODEX" = 1 ] && plats="${plats:+$plats + }Codex"
 head "Done"
 say "  Target:             $TARGET"
 say "  Platform(s):         $plats"
@@ -1870,6 +1967,16 @@ if [ "$WANT_AG" = "1" ]; then
   say "    Workflow:          $([ "$WANT_WORKFLOW" = "1" ] && echo "${WORKFLOW_SKILLS[*]}" || echo "(none)") ${DIM}(.agents/skills/)${RESET}"
   say "    Removed:           agents=${REMOVE_AG_AGENTS[*]:-none} rules=${REMOVE_AG_RULES[*]:-none} hooks=${REMOVE_AG_HOOKS[*]:-none}"
 fi
+if [ "$WANT_CODEX" = 1 ]; then
+  say "  ${BOLD}Codex (.codex/ + .agents/skills/)${RESET}"
+  say "    Agents:            .codex/agents/*.toml"
+  say "    Guidance:          .codex/guidance/*.md"
+  say "    Hooks:             .codex/hooks.json"
+  say "    Instructions:      AGENTS.md ($AGENTS_DOC)"
+fi
+if [ "$WANT_SHARED" = 1 ] && [ -f "$TARGET/AGENTS.md" ]; then
+  TOKEN_EST=$((TOKEN_EST + $(wc -c <"$TARGET/AGENTS.md") / 4))
+fi
 say "  Always-loaded est.:  ~${TOKEN_EST} tokens (CLAUDE.md/AGENTS.md + path-less rules)"
 [ "$TOKEN_EST" -gt 1000 ] 2>/dev/null && say "  ${YELLOW}Consider trimming — over the ~1000 token always-loaded budget.${RESET}"
 
@@ -1885,5 +1992,7 @@ fi
 say ""
 [ "$WANT_CLAUDE" = "1" ] && say "${YELLOW}Restart Claude Code${RESET} so the new agents, rules, and hooks are picked up."
 [ "$WANT_AG" = "1" ] && say "${YELLOW}Reload Antigravity${RESET} so the new .agents/ skills, rules, and hooks are picked up."
+
+[ "$WANT_CODEX" = 1 ] && say "${YELLOW}Start a new Codex session${RESET} and review any new hooks with /hooks."
 
 exit 0 # success — don't leak the last conditional's exit status

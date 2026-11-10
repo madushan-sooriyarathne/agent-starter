@@ -14,7 +14,7 @@ Initialize the coding session by establishing the repository context, operating 
 ## Initialization Workflow
 
 1. **Locate workspace root.** Determine the current working directory and find the nearest version control root (`.git`).
-2. **Discover instructions.** Search for instruction files from the root downward: `CLAUDE.md` (Claude Code) or `AGENTS.md` (Antigravity), plus any harness-specific directives.
+2. **Discover instructions.** Search for instruction files from the root downward: `CLAUDE.md` (Claude Code) or `AGENTS.md` (Antigravity or Codex), plus host-specific directives such as `AGENTS.override.md` in Codex.
 3. **If none exists**, say so and stop — recommend running `/init` (or `/setup-agents`) to create
    one. Do not invent practices or start coding.
 4. **Resolve precedence.**
@@ -23,7 +23,7 @@ Initialize the coding session by establishing the repository context, operating 
    - Project conventions stay authoritative unless explicitly contradicted.
    - If two instructions conflict and cannot be resolved, halt and ask the user.
 5. **Load referenced skills.** Inspect the instructions for referenced skills. Read each relevant `SKILL.md` and apply its requirements. Do not load unrelated skills. Also load the session defaults `i-have-adhd`, `caveman`, and `ponytail` when they are installed — they are optional, so a missing one is skipped, not a failure.
-6. **Read the rules.** Read any `.claude/rules/*.md` / `.agents/rules/*.md` and files under `guides/` or `docs/` the instruction file points to.
+6. **Read the rules.** Read the rules for the current host and the applicable guidance the instruction file points to, including `.codex/guidance/` in Codex.
 7. **Inspect the environment.** Identify the package manager, workspace layout (monorepo vs. standalone), build tools, lint rules, and test harnesses.
 8. **Commit and confirm.** State that these govern every change this session, and name which session defaults actually loaded. Echo the key practices back in a short list (proof of comprehension, not a full reprint), shaped per any loaded defaults.
 

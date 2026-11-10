@@ -1,0 +1,32 @@
+{
+  "block-dangerous-commands": [
+    { "event": "PreToolUse", "matcher": "^Bash$", "timeout": 5 }
+  ],
+  "protect-files": [
+    { "event": "PreToolUse", "matcher": "^apply_patch$", "timeout": 5 }
+  ],
+  "scan-secrets": [
+    { "event": "PreToolUse", "matcher": "^apply_patch$", "timeout": 5 }
+  ],
+  "warn-large-files": [
+    { "event": "PreToolUse", "matcher": "^apply_patch$", "timeout": 5 }
+  ],
+  "format-on-save": [
+    { "event": "PostToolUse", "matcher": "^apply_patch$", "timeout": 30 }
+  ],
+  "auto-test": [
+    { "event": "PostToolUse", "matcher": "^apply_patch$", "timeout": 120 }
+  ],
+  "lint-on-stop": [
+    { "event": "PostToolUse", "matcher": "^apply_patch$", "timeout": 5 },
+    { "event": "Stop", "timeout": 120 }
+  ],
+  "typecheck-on-stop": [
+    { "event": "PostToolUse", "matcher": "^apply_patch$", "timeout": 5 },
+    { "event": "Stop", "timeout": 120 }
+  ],
+  "session-start": [
+    { "event": "SessionStart", "matcher": "^startup$", "timeout": 10 }
+  ],
+  "notify": [{ "event": "Stop", "timeout": 5 }]
+}

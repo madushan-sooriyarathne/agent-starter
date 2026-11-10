@@ -8,17 +8,16 @@ description: >
   Go, Rust, Ruby, Java, or anything else evidence supports), then interactively
   installs review agents, rules, deterministic hooks, recommended skills, and a
   CLAUDE.md template — targeting Claude Code ONLY (.claude/ + CLAUDE.md), even
-  when invoked from Antigravity. For Antigravity use /setup-agy; for both hosts
-  use /setup-agents.
+  when invoked from Antigravity. For Antigravity use /setup-agy; for all hosts
+  use /setup-agents. For Codex use setup-codex.
 metadata:
-  version: "0.8.0"
+  version: "0.9.0"
 ---
 
 # /setup-claude
 
 Scaffold a tailored agent workspace into the current project for **Claude Code
-only**. This skill is the in-session entry point; `install.sh` at the plugin
-root (platform option "Claude Code") is the terminal equivalent.
+only**. This skill is the in-session entry point; `install.sh` from a checkout (platform option "Claude Code") is the terminal equivalent.
 
 **Targets are fixed, not detected:** `TARGETS = {claude}`,
 `ADAPTERS = claude-code`. It writes `.claude/` + `CLAUDE.md` and never touches
@@ -26,8 +25,8 @@ root (platform option "Claude Code") is the terminal equivalent.
 
 ## Flow
 
-The shared flow lives in the `setup-agents` skill's references (same plugin
-bundle). Resolve that directory:
+The shared flow lives in the [setup-agents references](../setup-agents/references/scan-and-plan.md)
+relative to this skill's installed directory. Use these fallbacks when needed:
 
 - **Claude Code** — `${CLAUDE_PLUGIN_ROOT}/skills/setup-agents/references/`.
 - **Antigravity** — the staged plugin tree at
@@ -43,6 +42,6 @@ Then:
 3. **Report.** Emit the Step 6 summary and tell the user to restart Claude Code.
 
 Everything is in `scan-and-plan.md` — the governing principle, gap-analysis mode, and guardrails
-— applies as written. When `.claude/`+`CLAUDE.md` already exist, this takes the
+— applies as written. When `.claude/` or `CLAUDE.md` already exists, this takes the
 gap-analysis fork (Step 1.7): missing items offered, orphans flagged, each
 one-shot or per-category — instead of the fresh-install tiers.

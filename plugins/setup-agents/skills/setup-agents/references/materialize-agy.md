@@ -6,6 +6,11 @@ the project root. Uses the `antigravity-cli` skill adapter. Antigravity
 discovers this tree natively — no plugin bundle, no `plugin.json`. Read the
 bundle root and plan from `references/scan-and-plan.md`.
 
+When Codex is also selected, defer the root `AGENTS.md`, portable bundled and
+workflow skills, and external skill installs to the Codex materializer. Keep
+Antigravity's agent personas, rules, and hooks in this writer. Any approved
+Claude-specific skills for Antigravity are still handled here.
+
 Target layout:
 
 ```
@@ -97,7 +102,7 @@ discipline`); the ponytail sub-tools and all other external skills append nothin
   silently skip an existing doc, the compare/recommend happens in Step 2.6 — then
   run the same budget check as the Claude path (`grep -cv '^[[:space:]]*$' AGENTS.md`;
   ≤25 pass, 25-50 warn/trim, >50 must trim to ≤50):
-  - **Fresh copy** → copy `${BUNDLE}/template/CLAUDE.md` → `./AGENTS.md`.
+  - **Fresh copy** → copy `${BUNDLE}/template/AGENTS.md` → `./AGENTS.md`.
   - **Replace** → same copy, overwriting the existing root `./AGENTS.md`.
   - **Merge** → keep `./AGENTS.md`, fold in only the template sections it lacks.
   - **Keep existing** → leave `./AGENTS.md` untouched, no write.

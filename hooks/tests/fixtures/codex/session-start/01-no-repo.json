@@ -1,0 +1,9 @@
+{
+  "name": "no context outside a Git repo",
+  "stdin": {
+    "hook_event_name": "SessionStart",
+    "cwd": "/"
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["additionalContext"]
+}

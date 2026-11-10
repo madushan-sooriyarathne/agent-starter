@@ -1,6 +1,6 @@
 # Hooks Catalog
 
-Ten deterministic shell hooks, copied from `${CLAUDE_PLUGIN_ROOT}/hooks/` (slash command)
+Ten deterministic shell hooks, copied from `${BUNDLE}/template/hooks/claude/` (slash command)
 or `$SCRIPT_DIR/hooks/` (install.sh) into the target project's `.claude/hooks/`, then
 registered in `.claude/settings.json`.
 

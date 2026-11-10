@@ -1,39 +1,44 @@
 # agent-starter
 
-A Claude Code plugin marketplace shipping one plugin — `setup-agents` — that scaffolds a tailored agent workspace (agents, skills, hooks, rules) into any project. Targets **Claude Code** (`.claude/`) and **Google Antigravity** (flat `.agents/`).
+Agent Starter scaffolds project-specific configuration for Claude Code, Google Antigravity, and OpenAI Codex. One plugin, `setup-agents`, packages four setup skills.
 
 ## Hosts
 
-| Host        | Layout                                                         | Components ported                           |
-| ----------- | -------------------------------------------------------------- | ------------------------------------------- |
-| Claude Code | `.claude/{agents,rules,hooks}` + `settings.json` + `CLAUDE.md` | all                                         |
-| Antigravity | `.agents/{skills,rules,hooks}` + `hooks.json` + `AGENTS.md`    | rules, agents→skills, all 10 hooks (native) |
+| Host        | Project configuration                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------ |
+| Claude Code | `.claude/{agents,rules,skills,hooks}/`, `.claude/settings.json`, and `CLAUDE.md`           |
+| Antigravity | `.agents/{skills,rules,hooks}/`, `.agents/hooks.json`, and `AGENTS.md`                     |
+| Codex       | `.codex/{agents,guidance,hooks}/`, `.codex/hooks.json`, `.agents/skills/`, and `AGENTS.md` |
 
 On Antigravity, agents ship as **skills** (auto `/<name>` slash commands — Antigravity subagents have no static file format). All 10 hooks port, each as its own native implementation under `hooks/antigravity/` — duplicated logic, not a shim translating the Claude-shaped `hooks/claude/` scripts. The 4 safety hooks map 1:1 onto Antigravity's `PreToolUse` (`{toolCall}`→`{decision,reason}`); the other 6 needed a redesign since Antigravity's `PostToolUse` carries no tool args at all — they run on `Stop`/`PreInvocation` instead, using live `git status`/`git diff` in place of a per-edit marker. See `hooks/README.md` for the per-hook breakdown and open risks.
 
 ## Entry points
 
-### `/setup-agents`, `/setup-claude`, `/setup-agy` (inside Claude Code or Antigravity)
+### Setup skills
 
-Three slash commands, host-independent — each hard-targets a host set regardless of where it runs, scans the project, recommends the right subset, and installs only what the evidence justifies. On an existing config each runs as a gap analysis.
+Each skill scans the project and plans what to install or update. The target is fixed by the skill, regardless of which host runs it.
 
-| Command         | Targets                       | Writes                                                    |
-| --------------- | ----------------------------- | --------------------------------------------------------- |
-| `/setup-agents` | Claude Code **+** Antigravity | `.claude/` + `CLAUDE.md` **and** `.agents/` + `AGENTS.md` |
-| `/setup-claude` | Claude Code only              | `.claude/` + `CLAUDE.md` (even from Antigravity)          |
-| `/setup-agy`    | Antigravity only              | `.agents/` + `AGENTS.md` (even from Claude Code)          |
+| Skill          | Targets                             |
+| -------------- | ----------------------------------- |
+| `setup-agents` | Claude Code, Antigravity, and Codex |
+| `setup-claude` | Claude Code                         |
+| `setup-agy`    | Antigravity                         |
+| `setup-codex`  | Codex                               |
 
-The scan/confirm/plan logic is shared (`skills/setup-agents/references/scan-and-plan.md`); the three skills differ only in which host tree(s) they materialize. For the both-host mode, the two trees are written independently as real files — no symlinks between them.
+Use `/setup-codex` in Claude Code or Antigravity. In Codex, pick `setup-agents:setup-codex` in the skill picker or ask Codex to run the setup-codex skill. For an all-host setup, Codex and Antigravity share one root `AGENTS.md` and one `.agents/skills/` directory. Existing shared files are kept by default.
 
-### `./install.sh` (terminal)
+### Terminal installer
 
 ```bash
-./install.sh
+/path/to/agent-starter/install.sh --host codex
+/path/to/agent-starter/install.sh --host all
 ```
 
-Same flow as the `/setup-*` skills but driven from the shell. Prompts for the target host (Claude Code / Antigravity / both — the terminal equivalent of the three commands), detects the target directory, prints numbered checklists per category, accepts space-separated numbers / `a` / `n` / Enter for defaults. Requires bash + `bunx`.
+Run from the target project. Without `--host`, the installer prompts for a host and defaults to Claude Code. The legacy `--host both` selects Claude Code and Antigravity. Codex setup requires Bash and `jq`. External skills use `bunx` or `npx`.
 
-Both entry points write a drift fingerprint of the detected stack used by the `session-start` hook: `.claude/.agent-starter.json` on Claude Code, `.agents/.agent-starter.json` on Antigravity (read back on the first `PreInvocation` of each new conversation, since Antigravity has no direct `SessionStart` event).
+### Codex project configuration
+
+Codex gets native TOML agents, selected Markdown guidance referenced from `AGENTS.md`, portable skills, and project hooks. The command guard covers Bash, while file protection, secret detection, formatting, and test checks use the `apply_patch` tool path. Use `/hooks` in a new Codex session to review and trust newly installed hooks. See [Codex hooks](https://learn.chatgpt.com/docs/hooks) and [the hook catalog](hooks/README.md).
 
 ## What gets installed
 
@@ -113,22 +118,23 @@ Hooks exit `0` to allow and `2` to block; stderr is fed back to Claude.
 
 **Bundled** — ship with this plugin, no install needed:
 
-| Skill            | Invoke            | Purpose                                                              |
-| ---------------- | ----------------- | -------------------------------------------------------------------- |
-| `setup-agents`   | `/setup-agents`   | Scan → plan → install for **both** hosts (`.claude/` + `.agents/`)   |
-| `setup-claude`   | `/setup-claude`   | Same flow, Claude Code only (`.claude/` + `CLAUDE.md`)               |
-| `setup-agy`      | `/setup-agy`      | Same flow, Antigravity only (`.agents/` + `AGENTS.md`)               |
-| `catchup`        | `/catchup`        | Rebuild context after `/clear`; `handoff` to write the session note  |
-| `debug-fix`      | `/debug-fix`      | Careful bug fix. `--fast` for hotfix branch                          |
-| `explain`        | `/explain`        | One-sentence summary + mental model; `verbose` for ASCII diagram     |
-| `fix-issue`      | `/fix-issue`      | GitHub issue → tested fix → closing PR                               |
-| `pr-review`      | `/pr-review`      | Six specialist agents in parallel; merge/needs-changes verdict       |
-| `refactor`       | `/refactor`       | Safe refactor with tests as safety net; `--diff` for pre-commit pass |
-| `ship`           | `/ship`           | Commit → push → PR with confirmation at each step                    |
-| `tdd`            | `/tdd`            | Red → green → refactor loop; commits after each cycle                |
-| `test-writer`    | `/test-writer`    | Comprehensive tests: happy/edge/error/concurrency paths              |
-| `claude-md`      | `/claude-md`      | Capture session learnings; `audit` to prune stale content            |
-| `context-budget` | `/context-budget` | Token cost estimate for `.claude/` config; `--api` for exact counts  |
+| Skill            | Invoke             | Purpose                                                              |
+| ---------------- | ------------------ | -------------------------------------------------------------------- |
+| `setup-agents`   | `/setup-agents`    | Scan, plan, and install for all three hosts                          |
+| `setup-claude`   | `/setup-claude`    | Same flow, Claude Code only (`.claude/` + `CLAUDE.md`)               |
+| `setup-agy`      | `/setup-agy`       | Same flow, Antigravity only (`.agents/` + `AGENTS.md`)               |
+| `setup-codex`    | Codex skill picker | Same flow, Codex only                                                |
+| `catchup`        | `/catchup`         | Rebuild context after `/clear`; `handoff` to write the session note  |
+| `debug-fix`      | `/debug-fix`       | Careful bug fix. `--fast` for hotfix branch                          |
+| `explain`        | `/explain`         | One-sentence summary + mental model; `verbose` for ASCII diagram     |
+| `fix-issue`      | `/fix-issue`       | GitHub issue → tested fix → closing PR                               |
+| `pr-review`      | `/pr-review`       | Six specialist agents in parallel; merge/needs-changes verdict       |
+| `refactor`       | `/refactor`        | Safe refactor with tests as safety net; `--diff` for pre-commit pass |
+| `ship`           | `/ship`            | Commit → push → PR with confirmation at each step                    |
+| `tdd`            | `/tdd`             | Red → green → refactor loop; commits after each cycle                |
+| `test-writer`    | `/test-writer`     | Comprehensive tests: happy/edge/error/concurrency paths              |
+| `claude-md`      | `/claude-md`       | Capture session learnings; `audit` to prune stale content            |
+| `context-budget` | `/context-budget`  | Token cost estimate for `.claude/` config; `--api` for exact counts  |
 
 **External** — installed with the Vercel `skills` CLI:
 
@@ -204,9 +210,24 @@ not installed as standalone plugins.
 
 ```bash
 # Install the marketplace, then the plugin
-claude plugin marketplace add madushan/agent-starter
+claude plugin marketplace add madushan-sooriyarathne/agent-starter
 claude plugin install setup-agents@agent-starter
 ```
+
+### Codex
+
+From the published repository, add the marketplace and install the plugin:
+
+```bash
+codex plugin marketplace add madushan-sooriyarathne/agent-starter
+codex plugin add setup-agents@agent-starter
+```
+
+To try a local checkout, pass its path to `codex plugin marketplace add`.
+In Codex desktop, select the **Agent Starter** source in Plugins, then install
+**setup-agents**. Start a new session in the target project and pick
+`setup-agents:setup-codex` or `setup-agents:setup-agents`. See
+[OpenAI marketplace setup](https://developers.openai.com/plugins/build/plugins#add-a-marketplace-from-the-cli).
 
 ### Antigravity (`agy`)
 
@@ -232,30 +253,30 @@ session so `/setup-agents` is picked up.
 
 ```
 agent-starter/
-├── .claude-plugin/marketplace.json   # marketplace manifest
+├── .claude-plugin/marketplace.json   # Claude marketplace
+├── .agents/plugins/marketplace.json # Codex marketplace
 ├── agents/                           # 8 review agent definitions
 ├── rules/                            # 16 rule files
-├── hooks/                            # 10 hooks × 2 hosts (claude/ + antigravity/) + tests/
+├── hooks/                            # Claude and Antigravity hooks, Codex dispatcher, and fixtures
 ├── skills/                           # 14 bundled skill dirs
 ├── lang/                             # language profiles (typescript, rust, go) filling <!-- lang --> markers
 ├── plugins/                          # setup-agents plugin (plugin.json + skill copy)
 ├── scripts/
 │   ├── test.sh                       # single consistency gate (run before every commit)
 │   ├── format.sh                     # formats bash + markdown + JSON
-│   └── materialize-agy-skills.sh     # regenerates plugins/*/skills/ real copies for agy
+│   └── materialize-agy-skills.sh     # regenerates the installable plugin bundle
 ├── templates/
-│   ├── CLAUDE.template.md            # shipped to user projects by /setup-agents
+│   ├── CLAUDE.template.md            # Claude project instructions
+│   ├── AGENTS.template.md            # Codex and Antigravity instructions
 │   └── settings.json                 # hook-wired settings template
 ├── install.sh                        # terminal entry point
 └── README.md
 ```
 
-`plugins/setup-agents/` contains a `.claude-plugin/plugin.json`, the
-`template/` shipped to user projects, and a real copy of `skills/setup-agents/`
-under `plugins/setup-agents/skills/` (regenerated by
-`scripts/materialize-agy-skills.sh`). Top-level `agents/`/`rules/`/`hooks/`/`skills/`
-are the source of truth — they reach user projects via `/setup-agents`
-scaffolding, not as standalone plugins.
+The generated `plugins/setup-agents/` bundle includes host manifests and real
+copies of the four setup skills and their runtime templates. Edit the
+top-level sources and run `scripts/materialize-agy-skills.sh` to regenerate
+the bundle.
 
 ## Development
 
@@ -266,15 +287,15 @@ bash scripts/format.sh                   # format bash + markdown + JSON
 
 `scripts/test.sh` is the single consistency check: bash syntax, JSON validity,
 `plugin.json` version parity, agent/skill frontmatter, hook antigravity-twin +
-fixture parity, catalog drift, agy-skill copy freshness, the hook fixture suite,
-and an `install.sh` smoke run. It fails **closed** on any structural break; exit
+fixture parity, catalog drift, bundle freshness, host scaffolding, and a Codex
+marketplace install when the CLI is available. It fails **closed** on any structural break; exit
 `0` = shippable. Targeted runs:
 
 ```bash
 bash hooks/tests/run-all.sh              # run all hook fixture tests (requires jq)
 claude plugin validate . --strict        # validate marketplace + plugin manifests
 agy plugin validate plugins/<name>       # validate a single plugin against agy's schema
-./scripts/materialize-agy-skills.sh      # after editing anything under skills/<name>/, regenerate plugins/*/skills/ copies
+./scripts/materialize-agy-skills.sh      # regenerate after changing shipped components
 ./scripts/materialize-agy-skills.sh --check  # verify copies aren't stale (no writes)
 ```
 

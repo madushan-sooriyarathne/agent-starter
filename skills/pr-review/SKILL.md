@@ -67,7 +67,7 @@ Decide which reviewers apply by reading the diff content, not just file paths:
 | `performance-reviewer`  | Endpoints, DB queries, loops over collections, caching, connection management. Skip for pure-docs, config-only, or static-asset diffs.                                                |
 | `doc-reviewer`          | `.md` changes, significant docstring or JSDoc changes, API docs.                                                                                                                      |
 
-**Dispatch all applicable reviewers in PARALLEL.** Send one message that contains one Agent/Task tool call per applicable reviewer. Do NOT invoke them sequentially. Parallel dispatch cuts wall-clock time from N times the slowest review to roughly the slowest single review, with no extra token cost. Each call looks like:
+**Dispatch all applicable reviewers in PARALLEL.** Send one message that contains one Agent/Task tool call per applicable reviewer. Do NOT invoke them sequentially. Parallel dispatch cuts wall-clock time from N times the slowest review to roughly the slowest single review, with no extra token cost. Use the host’s native subagent tool when available, such as Codex’s `spawn_agent` with the installed reviewer role. Otherwise review inline. In Claude Code, each call looks like:
 
 ```
 Agent(subagent_type: "code-reviewer",

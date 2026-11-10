@@ -1,0 +1,9 @@
+{
+  "name": "malformed session is ignored",
+  "stdin": {
+    "hook_event_name": "Stop",
+    "session_id": "../outside"
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["decision"]
+}

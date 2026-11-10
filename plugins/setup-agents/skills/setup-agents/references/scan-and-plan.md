@@ -1,17 +1,13 @@
 # Shared flow — scan, confirm, plan
 
-This is the host-agnostic core shared by **`/setup-agents`**, **`/setup-claude`**,
-and **`/setup-agy`**. The calling skill sets:
+The calling setup skill selects a fixed subset of `{claude, agy, codex}`.
+`setup-agents` selects all three. Each single-host skill selects its named
+target, regardless of the host executing it.
 
-- **`TARGETS`** — a subset of `{claude, agy}`. `/setup-claude` → `{claude}`,
-  `/setup-agy` → `{agy}`, `/setup-agents` → `{claude, agy}`.
-- **`ADAPTERS`** — the Vercel-`skills` adapter name(s) for the targets:
-  `claude-code` for `claude`, `antigravity-cli` for `agy`. Both when `TARGETS`
-  has both.
-
-These are fixed by the invoking skill — **do not detect the host you run in.**
-`/setup-claude` scaffolds Claude Code even when invoked from Antigravity, and
-`/setup-agy` scaffolds Antigravity even when invoked from Claude Code.
+Select the skills adapters from the targets: `claude-code` for Claude Code,
+`antigravity-cli` for Antigravity alone, and `codex` for Codex. If both Codex
+and Antigravity are selected, use the `codex` adapter for their shared
+`.agents/skills/` directory. Claude Code keeps its own adapter.
 
 **Target directory is always the current working directory.** Do not ask the
 user to confirm the directory — the in-session CWD is the target.
@@ -28,20 +24,20 @@ not an essay.
 
 ## Resolving the bundle root
 
-Source files live under `template/` at the plugin bundle root: `agents/`,
-`rules/`, `hooks/`, `skills/` (bundled + workflow SKILL.md sources), `CLAUDE.md`,
-`settings.json`, and the catalogs in `skills/setup-agents/references/`. Resolve the bundle root per host you are
-running in (this is about _reading_ the plugin's own files — it is independent
-of `TARGETS`, which only decides what gets _written_):
+From the invoked skill's installed `skills/<name>/SKILL.md` path, walk up to
+the bundle root. It contains the `skills/setup-agents/references/` directory and
+`template/` with all shipped assets, including language profiles and the Codex
+writer. The path is independent of the current project. Use the absolute
+installed skill path supplied by the host when available.
 
-- **Claude Code** — `${CLAUDE_PLUGIN_ROOT}` (env var is always set). Catalogs
-  and this file are at `${CLAUDE_PLUGIN_ROOT}/skills/setup-agents/references/`.
-- **Antigravity** — no equivalent env var is exposed to skills. `agy plugin
-install` stages the whole plugin tree verbatim under
-  `~/.gemini/config/plugins/setup-agents/`, so read `template/` and
-  `skills/setup-agents/references/` from there. If that path doesn't exist,
-  walk up from this file's own directory until you find a sibling `plugin.json`
-  — that directory is the bundle root.
+- **Claude Code** can also resolve `CLAUDE_PLUGIN_ROOT`.
+- **Antigravity** can also use `~/.gemini/config/plugins/setup-agents/`.
+- **Codex** installs to the plugin cache. If the skill path is unavailable,
+  use `codex plugin list --json` to identify the enabled marketplace and version,
+  then locate the matching `setup-agents` under the configured Codex plugin
+  cache. Verify the bundle contains `template/` and the
+  references before applying a plan. If it cannot be resolved uniquely, stop
+  and report the missing bundle.
 
 ## Step 1 — Scan the project
 
@@ -96,24 +92,21 @@ handful of real source/test files when a signal is ambiguous.
 - Deploy signals: `Dockerfile`, `docker-compose.*`, `Caddyfile`, `nginx.conf`.
 - Git: default branch (`git symbolic-ref refs/remotes/origin/HEAD`), whether
   `gh` is installed and a GitHub remote exists (gates PR-related skills).
-- existing host config for any of `TARGETS` (`.claude/` + `CLAUDE.md` for
-  `claude`, `.agents/` + `AGENTS.md` for `agy`) → **gap-analysis mode** (see
-  below); presence of the tree OR its project doc is enough to trip it
+- Existing host config for any selected target triggers **gap analysis**.
+  Detect Claude via `.claude/` or `CLAUDE.md`, Antigravity via its rule/hook/MCP
+  files under `.agents/`, and Codex via `.codex/`. Treat `AGENTS.md` and
+  `.agents/skills/` as shared. A handwritten doc, shared skills, or a
+  marketplace catalog alone does not mark either host configured.
 
-If the project has no source files and no manifests: say so, offer only the
-minimal baseline (project-doc template + the four safety hooks), and stop after
-installing it. Tell the user to re-run once code exists.
+If the project has no source files and no manifests, offer the minimal
+baseline (project instructions and the four safety hooks). Re-run after the
+project has code to add stack-specific components.
 
-**Gap-analysis mode:** if a target's host config already exists (`.claude/` +
-`CLAUDE.md` for `claude`, `.agents/` + `AGENTS.md` for `agy`), set gap mode for
-this run and read what's already there (agents/skills, rules, hooks wired in
-`settings.json`/`hooks.json`) directly from disk — no separate install-record
-file is needed. Gap mode **replaces the install-tier pick (Step 1.6) with the
-gap-analysis remediation (Step 1.7)**: it offers what's missing and flags what's
-orphaned, then routes both through the Step 3 plan. Never delete or overwrite an
-existing file without it appearing in the approved plan first. When `TARGETS`
-has both hosts, run gap-analysis independently per host — a host with no config
-yet simply has its full recommended set as "missing" and nothing orphaned.
+When any target has configuration, inspect it per target. A fresh target
+still needs its recommended agents, guidance, hooks, and portable skills.
+An existing target lists missing, owned orphans, and re-tailor candidates.
+Preserve unknown files and existing shared skills. Plan `AGENTS.md` once
+for both hosts, independently of whether `CLAUDE.md` exists.
 
 Build a `detectedStack` list from the hits, and the `LANGS` list of language profiles
 (`typescript` / `rust` / `go`) per `references/language-tailoring.md` — materialization
@@ -191,14 +184,13 @@ into the project (see the materialize refs), not installed via the skills CLI.
 
 **One-shot tiers (Minimal / Standard / Full):** build the selection silently
 from the catalogs, skip all per-category prompts, and go straight to Step 3's
-plan table. Render the table (the contract still holds), then install without
-further questions **except** when one of these fires — only then stop and ask:
+plan table. Ask for plan approval and resolve these conditions before applying it:
 
 - a required system dep is missing (`uv`/`pipx` for Graphify, `bunx` for
   skills, `gh auth` for a private skill repo), or
 - a crucial/destructive action is pending (overwriting an existing project doc,
   or overwriting/removing existing files in gap-analysis mode).
-  Otherwise apply the whole plan and report at the end.
+  Apply the approved plan and report at the end.
 
 **Custom** → proceed to Step 2.
 
@@ -214,12 +206,11 @@ each catalog once, apply its **Recommend when** column):
   (`block-dangerous-commands`, `scan-secrets`, `protect-files`,
   `warn-large-files`) count as missing whenever they aren't wired. A host with
   no config yet lists its full recommended set here.
-- **Orphan** — something already on disk that current evidence no longer
-  justifies: (a) an installed catalog item whose **Recommend when** is now false
-  (stack signal removed), or (b) an installed file with no catalog match at all
-  (renamed or dropped upstream, hand-added). Never treat the project doc,
-  `settings.json`/`hooks.json`, or `.agent-starter.json` as orphans — they are
-  host plumbing, not catalog components.
+- **Orphan** — an installer-owned file whose catalog entry no longer applies.
+  Treat ownership as unconfirmed for unknown paths or edited copies. Keep
+  shared skill entries if Codex or Antigravity uses or may still use them.
+  Preserve existing native Codex files by default. Project docs, hook
+  registration files, and fingerprints are configuration, never orphans.
 
 - **Re-tailor** — catalog files on disk whose language sections are out of date
   for the current `LANGS`: **refill** (blocks record other languages — rewritten
@@ -228,7 +219,7 @@ each catalog once, apply its **Recommend when** column):
   `references/language-tailoring.md`.
 
 Render one gap report — labeled sections, one row per item with a one-line
-reason. When `TARGETS` has both hosts and their state differs, group by host.
+reason. When multiple targets differ, group by host.
 
 ```
 Gap analysis (Targets: Claude Code)
@@ -237,7 +228,6 @@ Gap analysis (Targets: Claude Code)
     scan-secrets (hook)         safety baseline — not wired
   Orphan — installed, no longer justified
     graphql.md (rule)           no GraphQL dep or schema found anymore
-    old-helper.sh (hook)        no catalog match — renamed/removed upstream
   Re-tailor — language sections out of date (now: rust)
     qgit (skill)                refill — tailored for typescript only
     code-reviewer (agent)       recopy — pre-profile copy, overwrites local edits
@@ -273,16 +263,11 @@ files), then continue to Step 3 as normal.
 Read the matching catalog before presenting each category, and pre-mark the
 recommended items per its **Recommend when** column against the scan.
 
-**Selection mechanics — every category uses the picker, never free text.**
-`AskUserQuestion` caps at 4 questions/call and 4 options/question, so a category
-with more than 4 items is presented as **one call split into ≤4 `multiSelect`
-questions of ≤4 options each** — every catalog item is its own toggle,
-pre-checked when its **Recommend when** holds. Group items in the catalog's
-listed order (`Group A–D`, `Group E–H`, …) purely to fit the 4-option cap; the
-grouping carries no meaning. Do **not** dump a text list and ask the user to
-type names — the picker is the only presentation. "all" / "the recommended
-ones" / "none" remain accepted as spoken replies, but the default render is
-always the pre-marked picker. Per-category question counts are fixed below.
+**Selection mechanics.** When `AskUserQuestion` supports multi-select, use
+batches of up to four options per question. Otherwise, show the same choices
+as numbered options in chat, pre-mark recommendations, and accept option
+numbers or “recommended”, “all”, or “none”. This fallback applies to every
+confirmation in the flow. Present one category at a time.
 
 Go in this order, one turn each:
 
@@ -299,12 +284,12 @@ Go in this order, one turn each:
    `session-start` by default (cheap).
 4. **Third-party plugins** — read `references/third-party-plugins-catalog.md`. This is
    now **Graphify only** (Caveman + Ponytail moved to the Skills catalog — see Step 5).
-   Present Graphify **pre-marked by default**; it's a system tool (`uv`/`pipx`/`pip`)
-   that writes a graph-report snippet to the project doc, so confirm before proceeding.
+   Offer Graphify for the supported Claude or Antigravity targets only.
+   It writes project configuration, so confirm those changes in the plan.
 5. **Skills** — read `references/skills-catalog.md`. Present in two groups:
    - **Bundled skills** (repo-bundled, copied into the project — never installed
      globally): scan the bundle's `template/skills/` dir (see bundle-root resolution
-     above) for subdirectory names, exclude `setup-agents`, `setup-claude`, `setup-agy`,
+     above) for subdirectory names, exclude the four setup skills,
      and the workflow commands (`qnew`/`qplan`/`qcode`/`qgit`/`qcheck` — handled as their
      own group). Show each bundled skill with its one-line description and pre-mark per
      the **Recommend when** column in the catalog's "Bundled Skills" section. Present
@@ -319,17 +304,17 @@ Go in this order, one turn each:
      the host doc (`# Communication style` / `# Build discipline`) — see the catalog
      footnote. All other external skills and the ponytail sub-tools append nothing.
 6. **Project doc template** — the template is `CLAUDE.md` for `claude`,
-   `AGENTS.md` for `agy` (both when `TARGETS` has both), and always lands at the
+   `AGENTS.md` for Antigravity or Codex (one shared action), and always lands at the
    **project root** — never inside `.claude/` or `.agents/`.
    - **No doc yet** → ask once whether to copy the template.
    - **Doc already exists** → never silently skip or overwrite. Read both the
      existing root doc and the template, compare them, and tell the user in 2-3
      lines what differs (e.g. existing is project-specific and richer → keep;
      existing is the stale/thin default and the template adds sections → update).
-     Then one `AskUserQuestion`: **Keep existing** / **Replace with template** /
-     **Merge** (fold the template's missing sections into the existing doc,
-     preserving the user's own content). Recommend the safer of keep/merge; don't
-     decide for them. Carry the choice into the Step 3 plan as the doc's action.
+     For a shared `AGENTS.md` when Codex is selected, offer **Keep existing**
+     (default) or **Merge** (add only the approved sections and guidance link).
+     For other docs also offer **Replace with template**. Carry the explicit
+     choice into the Step 3 plan.
 
 Each category is one turn: present its pre-marked picker (per the selection
 mechanics above), take the reply, move to the next. Never skip a category into a
@@ -337,10 +322,10 @@ free-text "type the names you want" prompt.
 
 ## Step 3 — Plan & approve
 
-Before writing anything, render one table from everything selected (and, in
-gap-analysis mode, everything flagged for removal). When `TARGETS` has both
-hosts, one plan drives both — note the target set in the table caption
-(e.g. "Targets: Claude Code + Antigravity"):
+Before writing anything, render one table covering each selected target and
+the affected output paths. List each shared path once. Mark incompatible items
+as skipped on that target. Separate Codex guidance files are read on demand.
+Include explicitly approved removals and edits to existing instructions:
 
 | Component                         | Action             | Evidence                                                  | Cost class                  |
 | --------------------------------- | ------------------ | --------------------------------------------------------- | --------------------------- |
@@ -358,14 +343,9 @@ Cost class: `invoked-only` for agents/skills, `path-scoped` for rules with
 `paths:` frontmatter, `always-loaded` for rules without it, `hook` for hooks
 (zero per-turn context cost, registered in host config).
 
-For the **Custom** tier, ask one `AskUserQuestion`: **approve the plan** /
-**adjust** (loop back to Step 2) / **cancel**. Do not proceed to materialization
-without approval. For one-shot tiers (Minimal / Standard / Full), still render
-this table, but auto-approve and proceed — interrupt only on the missing-dep or
-crucial/destructive flags listed in Step 1.6. **In gap-analysis mode always ask
-for approval** (**approve the plan** / **adjust** — loop back to Step 1.7 /
-**cancel**), since the plan may carry `remove` rows. This table is the contract
-— materialization installs and removes exactly what it lists.
+Ask the user to approve, adjust, or cancel the combined plan before writing.
+Show the files that would be removed, overwritten, or merged and keep those
+actions opt-in. The plan is the contract for every materializer.
 
 ## Next — materialize
 
@@ -374,17 +354,20 @@ With the plan approved, run the materializer(s) for `TARGETS`:
 - `claude` in `TARGETS` → follow `references/materialize-claude.md`.
 - `agy` in `TARGETS` → follow `references/materialize-agy.md`.
 
-When both are present, the scan/confirm/plan above ran **once**; only
-materialization runs twice (once per host, writing `.claude/` and `.agents/`
-independently — no shared files, no symlinks between the two trees).
+- `codex` in `TARGETS` → follow `references/materialize-codex.md`.
+
+Scan once and apply each selected writer. When Codex and Antigravity are both
+selected, the Codex writer handles portable skills, the shared external-skill
+adapter and the root `AGENTS.md`. Run a third-party installation at most once
+where it supports the selected hosts. Keep existing documentation and avoid
+duplicate snippets.
 
 ## Guardrails
 
-- Only ever write under the target host's tree: the `.claude/` directory plus a
-  `CLAUDE.md` at the **project root** (`claude`), the `.agents/` directory plus
-  an `AGENTS.md` at the **project root** (`agy`). The project doc is ALWAYS
-  root-level — never write `.claude/CLAUDE.md` or `.agents/AGENTS.md`. Never
-  write a tree for a host not in `TARGETS`.
+- Limit writes to the selected hosts' approved paths. Claude writes
+  `.claude/` and root `CLAUDE.md`. Antigravity writes `.agents/` and root
+  `AGENTS.md`. Codex writes `.codex/`, `.agents/skills/`, and root
+  `AGENTS.md`. Keep existing marketplace files and user settings.
 - Never overwrite, remove, or install a file without it appearing in the
   approved Step 3 plan first.
 - If a category has no recommendations and the user skips it, that's fine —
